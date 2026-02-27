@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Stock</h1>
+    <table class="table table-striped table-bordered">
+        <thead class="table-header-blue">
+            <tr>
+                <th>Name</th>
+                <th>Stock Quantity</th>
+                <th>Production Method</th>
+                <th>Suppliers</th>
+                <th>Cost per Unit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for component in components %}
+            <tr>
+                <td>{{ component.name }}</td>
+                <td>
+                    <span class="badge bg-{{ component.stock_level_status }}">
+                        {{ component.stock_quantity }}
+                    </span>
+                </td>
+                <td>{{ component.get_production_method_display }}</td>
+                <td>
+                    {% for supplier in component.suppliers.all %}
+                        {{ supplier.name }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        <em>No Supplier</em>
+                    {% endfor %}
+                </td>
+                <td>${{ component.cost_per_unit }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

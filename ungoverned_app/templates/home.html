@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="text-center">
+    <h1>Welcome to Ungoverned Electric Skateboards!</h1>
+    <p class="lead">Designing, Building, and Shredding the Streets.</p>
+
+    <div class="d-flex justify-content-center gap-3 mb-3">
+        <a href="/components/" class="btn btn-primary">View Stock</a>
+        <a href="/orders/" class="btn btn-primary">View Orders</a>
+        <a href="/vendetta-bom/" class="btn btn-primary">View BoM</a>
+    </div>
+
+
+    <div>
+        <img src="{% static 'images/Skate-or-Die.jpg' %}" alt="Electric Skateboard"
+             class="img-fluid rounded mb-4" style="max-height: 600px;">
+    </div>
+    <div class="mt-5">
+        <img src="{% static 'images/UNGOVERNED_logo_n_text_BLK_background_730x.jpg' %}" alt="Ungoverned"
+             class="img-fluid rounded mb-4" style="max-height: 100px;">
+    </div>
+
+</div>
+{% endblock %}

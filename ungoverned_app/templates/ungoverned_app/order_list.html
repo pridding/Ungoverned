@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Orders</h1>
+    <table class="table table-bordered table-striped">
+        <thead class="table-header-blue">
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Country</th>
+                <th>Order Date</th>
+                <th>Status</th>
+                <th>Shipping Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+                <tr>
+                    <td>{{ order.id }}</td>
+                    <td>{{ order.customer.name }}</td>
+                    <td>{{ order.customer.country|default:"N/A" }}</td>
+                    <td>{{ order.order_date }}</td>
+                    <td>
+                      <span class="{% if order.status == 'pending' %}text-orange
+                                    {% elif order.status == 'building' %}text-info
+                                    {% elif order.status == 'completed' %}text-blue
+                                    {% elif order.status == 'shipped' %}text-success
+                                    {% elif order.status == 'cancelled' %}text-dark
+                                    {% else %}text-secondary{% endif %}">
+                        {{ order.status|capfirst }}
+                      </span>
+                    </td>
+                    <td>
+                        {% if order.status == 'shipped' and order.shipping_date %}
+                            {{ order.shipping_date }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">No orders found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <form method="get" class="mb-3 d-flex align-items-center">
+        <label for="status" class="me-2 mb-0">Filter by Status:</label>
+        <select name="status" id="status" class="form-select w-auto me-2" onchange="this.form.submit()">
+            <option value="">All</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="building" {% if status_filter == 'building' %}selected{% endif %}>Building</option>
+            <option value="shipped" {% if status_filter == 'shipped' %}selected{% endif %}>Shipped</option>
+            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+            <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+        </select>
+    </form>
+</div>
+{% endblock %}

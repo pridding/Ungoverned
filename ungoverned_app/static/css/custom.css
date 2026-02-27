@@ -1,0 +1,26 @@
+/* custom.css */
+
+.text-orange {
+  color: orange;
+}
+
+.text-blue {
+  color: blue;
+}
+
+.bg-deep-blue {
+  background-color: #003366; /* A dark blue */
+}
+
+.bg-light-blue {
+  background-color: #cce5ff; /* A light blue */
+}
+
+.text-white {
+  color: white;
+}
+
+table thead.table-header-blue th {
+  background-color: #007bff !important;
+  color: white !important;
+}
