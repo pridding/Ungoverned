@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Inventory Ledger: {{ component }}</h1>
+
+<p>
+  Current stock: <strong>{{ component.stock_quantity }}</strong>
+</p>
+
+<p>
+  <a href="{% url 'inventory_receive' %}">Receive Stock</a> |
+  <a href="{% url 'inventory_adjust' %}">Adjust Stock</a>
+</p>
+
+<table border="1" cellpadding="6">
+  <thead>
+    <tr>
+      <th>When</th>
+      <th>Delta</th>
+      <th>Reason</th>
+      <th>Note</th>
+      <th>Reference</th>
+      <th>By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in movements %}
+      <tr>
+        <td>{{ m.created_at }}</td>
+        <td>{{ m.qty_delta }}</td>
+        <td>{{ m.get_reason_display }}</td>
+        <td>{{ m.note|default:"" }}</td>
+        <td>
+          {{ m.reference_type }}{% if m.reference_id %} #{{ m.reference_id }}{% endif %}
+        </td>
+        <td>{% if m.created_by %}{{ m.created_by.username }}{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6">No movements yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

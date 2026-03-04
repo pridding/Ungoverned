@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Adjust Stock</h1>
+<p>Use positive numbers to add stock, negative to reduce. Note is required.</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Adjust</button>
+</form>
+
+{% endblock %}

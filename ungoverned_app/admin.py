@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Supplier, Component, SupplierComponent, ProductComponent, Order, OrderItem, ProductOption
+from .models import Customer, Supplier, Component, SupplierComponent, ProductComponent, Order, OrderItem, ProductOption, StockMovement
 
 class ProductComponentInline(admin.TabularInline):
     model = ProductComponent
@@ -21,14 +21,6 @@ class CustomerAdmin(admin.ModelAdmin):
 class SupplierAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
-
-
-@admin.register(Component)
-class ComponentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'unit', 'stock_quantity', 'production_method', 'is_low_stock')
-    list_filter = ('production_method',)
-    search_fields = ('name',)
-    # filter_horizontal = ('suppliers',)
 
 
 @admin.register(SupplierComponent)
@@ -54,3 +46,25 @@ class ProductOptionAdmin(admin.ModelAdmin):
     list_display = ('product', 'option_type', 'option_value')
     search_fields = ('product__name', 'option_type', 'option_value')
 
+@admin.register(StockMovement)
+class StockMovementAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "component", "qty_delta", "reason", "reference_type", "reference_id", "created_by")
+    list_filter = ("reason", "component")
+    search_fields = ("component__name", "note", "reference_type")
+
+class StockMovementInline(admin.TabularInline):
+    model = StockMovement
+    extra = 0
+    can_delete = False
+    ordering = ("-created_at",)
+    fields = ("created_at", "qty_delta", "reason", "reference_type", "reference_id", "created_by", "note")
+    readonly_fields = fields
+    show_change_link = True
+
+@admin.register(Component)
+class ComponentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'unit', 'stock_quantity', 'production_method', 'is_low_stock')
+    list_filter = ('production_method',)
+    search_fields = ('name',)
+    readonly_fields = ("stock_quantity",)
+    inlines = [StockMovementInline]
