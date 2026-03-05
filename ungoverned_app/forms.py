@@ -4,19 +4,25 @@ from django.core.exceptions import ValidationError
 from .models import ProductBuild, Order, Component
 
 
+from django import forms
+from .models import ProductBuild, Order
+
 class ProductBuildForm(forms.ModelForm):
     class Meta:
         model = ProductBuild
-        fields = ['quantity', 'order']
+        fields = ["quantity", "order"]
 
     def __init__(self, *args, order_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         if order_queryset is None:
-            order_queryset = Order.objects.filter(status='pending')
+            order_queryset = Order.objects.filter(status="pending")
 
-        self.fields['order'].queryset = order_queryset
-        self.fields['order'].label_from_instance = (
+        self.fields["order"].queryset = order_queryset
+        self.fields["order"].required = False
+        self.fields["order"].empty_label = "— No order —"
+
+        self.fields["order"].label_from_instance = (
             lambda obj: f"{obj.customer} (Order #{obj.id})"
         )
 

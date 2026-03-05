@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.urls import reverse
 from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -77,11 +78,23 @@ def product_bom(request):
     product_components = ProductComponent.objects.filter(product=product).select_related('component')
     buildable_units = get_max_buildable_units(product)
     recent_builds = ProductBuild.objects.filter(product=product).order_by('-built_at')[:5]
-    # Only pending orders
-    eligible_orders = Order.objects.filter(status__in=['pending', 'building'])
 
-    # Instantiate the form and restrict the order field to pending orders
-    form = ProductBuildForm(order_queryset=eligible_orders)
+    preselect_order_id = request.GET.get("order")
+
+    # ✅ ONLY pending orders are selectable
+    eligible_orders = Order.objects.filter(status="pending").select_related("customer")
+
+    selected_order = None
+    if preselect_order_id:
+        # ✅ only preselect if the order is pending
+        selected_order = eligible_orders.filter(id=preselect_order_id).first()
+        if not selected_order:
+            messages.warning(request, "That order is not Pending, so it can't be started.")
+
+    form = ProductBuildForm(
+        order_queryset=eligible_orders,
+        initial={"order": selected_order} if selected_order else None,
+    )
 
     return render(request, 'build/product_bom.html', {
         'product': product,
@@ -89,56 +102,158 @@ def product_bom(request):
         'buildable_units': buildable_units,
         'recent_builds': recent_builds,
         'form': form,
+        'selected_order': selected_order,
     })
 
+@login_required
+def build_product_for_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+
+    if order.status != "pending":
+        messages.error(request, "This order is not Pending, so it can't be started.")
+        return redirect("orders_list")
+
+    # Load the order items (your through model has related_name='order_items')
+    items = order.order_items.select_related("product").all()
+
+    if not items.exists():
+        messages.error(request, "This order has no items to build.")
+        return redirect("orders_list")
+
+    # ====== GET: show inventory check ======
+    if request.method == "GET":
+        # Build a simple “shortages” structure to display.
+        # This assumes Component has a stock/quantity field available; adjust to your actual stock field.
+        lines = []
+        for item in items:
+            product = item.product
+            qty = item.quantity
+
+            bom = ProductComponent.objects.filter(product=product).select_related("component")
+            bom_lines = []
+            for pc in bom:
+                required = pc.quantity_required * qty
+                on_hand = getattr(pc.component, "current_stock", None)  # <-- change to your actual stock field
+                shortage = None if on_hand is None else max(0, required - on_hand)
+                bom_lines.append({
+                    "component": pc.component,
+                    "required": required,
+                    "on_hand": on_hand,
+                    "shortage": shortage,
+                })
+
+            lines.append({
+                "product": product,
+                "qty": qty,
+                "bom_lines": bom_lines,
+            })
+
+        return render(request, "orders/build_for_order.html", {
+            "order": order,
+            "items": items,
+            "lines": lines,
+        })
+
+    # ====== POST: actually perform the build ======
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(id=order_id)
+        if order.status != "pending":
+            messages.error(request, "Order is no longer Pending.")
+            return redirect("orders_list")
+
+        # create build rows + consume stock
+        for item in order.order_items.select_related("product").all():
+            build = ProductBuild.objects.create(
+                order=order,
+                product=item.product,
+                quantity=item.quantity,
+                # built_at auto_now_add handles timestamp
+            )
+
+            for pc in ProductComponent.objects.filter(product=item.product):
+                qty_delta = -(pc.quantity_required * item.quantity)
+
+                record_stock_movement(
+                    component_id=pc.component.id,
+                    qty_delta=qty_delta,
+                    reason=StockMovement.Reason.BUILD_CONSUME,  # use your actual reason enum
+                    user=request.user,
+                    note=f"Order #{order.id} started build #{build.id}",
+                    ref=build,
+                )
+
+        order.status = "building"
+        order.save()
+
+    messages.success(request, f"Order #{order.id} moved to Building.")
+    return redirect("orders_list")
+
 @require_POST
+@login_required
 def build_product(request):
     product = get_object_or_404(Product, name="Vendetta")
     form = ProductBuildForm(request.POST)
 
+    # Pull the raw order id early so we can preserve it on redirects even if form invalid
+    order_id = request.POST.get("order") or ""
+
+    def bom_redirect():
+        url = reverse("product_bom")
+        return redirect(f"{url}?order={order_id}" if order_id else url)
+
     if not form.is_valid():
         messages.error(request, "Invalid build request.")
-        return redirect('product_bom')
+        return bom_redirect()
 
-    quantity = form.cleaned_data['quantity']
-    order = form.cleaned_data['order']
+    quantity = form.cleaned_data["quantity"]
+    order = form.cleaned_data["order"]  # may be None
 
-    product_components = ProductComponent.objects.filter(product=product)
-    insufficient = [pc.component.name for pc in product_components
-                    if pc.component.stock_quantity < pc.quantity_required * quantity]
+    product_components = ProductComponent.objects.filter(product=product).select_related("component")
+
+    insufficient = [
+        pc.component.name
+        for pc in product_components
+        if pc.component.stock_quantity < (pc.quantity_required * quantity)
+    ]
 
     if insufficient:
-        messages.error(request, f"Cannot build product. Insufficient stock for: {', '.join(insufficient)}.")
-        return redirect('product_bom')
+        messages.error(
+            request,
+            f"Cannot build product. Insufficient stock for: {', '.join(insufficient)}."
+        )
+        return bom_redirect()
 
     try:
         with transaction.atomic():
+            # Lock the order row if present (prevents race/double clicks)
+            if order:
+                order = Order.objects.select_for_update().get(id=order.id)
+
             build = ProductBuild.objects.create(product=product, order=order, quantity=quantity)
-    
+
             for pc in product_components:
                 qty_to_consume = pc.quantity_required * quantity
-    
+
                 record_stock_movement(
                     component_id=pc.component.id,
-                    qty_delta=-qty_to_consume,  # ✅ consume stock
+                    qty_delta=-qty_to_consume,
                     reason=StockMovement.Reason.BUILD_CONSUME,
                     user=request.user,
                     note=f"Consumed for build {build.id}",
                     ref=build,
                 )
-    
-            # ✅ Update order status (keep inside the transaction)
-            if order:
-                order.status = 'building'
+
+            # ✅ Only move Pending -> Building (don’t overwrite other states)
+            if order and order.status == "pending":
+                order.status = "building"
                 order.save()
-    
+
     except ValidationError as e:
         messages.error(request, str(e))
-        return redirect('product_bom')
+        return bom_redirect()
 
     messages.success(request, f"{quantity} unit(s) of {product.name} built successfully!")
-    return redirect('product_bom')
-
+    return bom_redirect()
 
 @require_POST
 def cancel_build(request, build_id):
@@ -258,52 +373,15 @@ def component_ledger(request, id):
         {"component": component, "movements": movements},
     )
 
-
 @login_required
-@require_POST
-@transaction.atomic
 def start_build(request, order_id):
-    order = get_object_or_404(Order.objects.select_for_update(), id=order_id)
+    order = get_object_or_404(Order, id=order_id)
 
-    if not order.can_start_build():
-        messages.error(request, "Order cannot be started (must be Pending).")
+    if order.status != "pending":
+        messages.error(request, "Only Pending orders can be started.")
         return redirect("orders_list")
 
-    # Guard against double-clicks / retries
-    existing_build = ProductBuild.objects.filter(order=order).first()
-    if existing_build:
-        messages.info(request, f"Build already exists for Order #{order.id}.")
-        order.status = Order.Status.BUILDING
-        order.save()
-        return redirect("orders_list")
-
-    # Create the build (you likely already know which product + qty this maps to)
-    # Example assumes Order has product + quantity fields. Adjust to your schema.
-    build = ProductBuild.objects.create(
-        order=order,
-        product=order.product,
-        quantity=order.quantity,
-    )
-
-    # Reserve/consume components immediately (your chosen approach)
-    for pc in ProductComponent.objects.filter(product=build.product):
-        qty_delta = -(pc.quantity_required * build.quantity)
-
-        record_stock_movement(
-            component_id=pc.component.id,
-            qty_delta=qty_delta,
-            reason=StockMovement.Reason.BUILD_CONSUME,  # or RESERVE if you have it
-            user=request.user,
-            note=f"Order #{order.id} started build #{build.id}",
-            ref=build,
-        )
-
-    order.status = Order.Status.BUILDING
-    order.save()
-
-    messages.success(request, f"Started build #{build.id} for Order #{order.id}.")
-    return redirect("orders_list")
-
+    return redirect(f"{reverse('product_bom')}?order={order.id}")
 
 @login_required
 def mark_shipped(request, order_id):

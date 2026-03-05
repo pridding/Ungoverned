@@ -16,6 +16,7 @@ urlpatterns = [
     path("orders/<int:order_id>/mark-complete/", views.mark_complete, name="mark_complete"),
     path("orders/<int:order_id>/ship/", views.ship_order, name="ship_order"),
     path("orders/<int:order_id>/cancel/", views.cancel_order, name="cancel_order"),
+    path("orders/<int:order_id>/build/", views.build_product_for_order, name="build_product_for_order"),
 
     path("inventory/receive/", views.inventory_receive, name="inventory_receive"),
     path("inventory/adjust/", views.inventory_adjust, name="inventory_adjust"),

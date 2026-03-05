@@ -32,11 +32,19 @@
     </table>
 
     <!-- Build Form -->
-    <form method="post" action="{% url 'build_product' %}" class="d-flex align-items-center mb-3">
+    <form method="post" action="{% url 'build_product' %}" class="d-flex align-items-center mb-3 flex-wrap gap-2">
         {% csrf_token %}
-        {{ form.quantity|add_class:"form-control w-auto me-2" }}
-        {{ form.order|add_class:"form-select w-auto me-2" }}
+    
+        {{ form.quantity|add_class:"form-control w-auto" }}
+        {{ form.order|add_class:"form-select w-auto" }}
+    
         <button type="submit" class="btn btn-success">Build This Product</button>
+    
+        {% if selected_order %}
+          <span class="badge bg-secondary">
+            Order #{{ selected_order.id }} — {{ selected_order.customer.name }}
+          </span>
+        {% endif %}
     </form>
     
     <h5 class="mt-4">Build History</h5>

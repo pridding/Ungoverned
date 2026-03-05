@@ -190,4 +190,5 @@ class ProductBuild(models.Model):
     built_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name} for Order #{self.order.id if self.order else 'N/A'}"
+        order_id = self.order.id if self.order else "N/A"
+        return f"{self.quantity} x {self.product.name} for Order #{order_id}"

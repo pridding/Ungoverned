@@ -67,10 +67,7 @@
                 <td>
                   {% if order.status == "pending" %}
                 
-                    <form method="post" action="{% url 'start_build' order.id %}" style="display:inline;">
-                      {% csrf_token %}
-                      <button class="btn btn-sm btn-primary">Start Build</button>
-                    </form>
+		    <a class="btn btn-sm btn-primary" href="{% url 'start_build' order.id %}">Start Build</a>
                 
                     <a href="{% url 'cancel_order' order.id %}" class="btn btn-sm btn-outline-danger">Cancel</a>
                 
