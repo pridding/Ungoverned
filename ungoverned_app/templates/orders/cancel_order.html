@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Cancel Order #{{ order.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h1 class="mb-4 text-danger">Cancel Order #{{ order.id }}</h1>
+
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <strong>Order Details</strong>
+        </div>
+
+        <div class="card-body">
+
+            <table class="table table-sm">
+                <tr>
+                    <th style="width:180px;">Customer</th>
+                    <td>{{ order.customer.name }}</td>
+                </tr>
+
+                <tr>
+                    <th>Country</th>
+                    <td>{{ order.customer.country|default:"N/A" }}</td>
+                </tr>
+
+                <tr>
+                    <th>Order Date</th>
+                    <td>{{ order.order_date }}</td>
+                </tr>
+
+                <tr>
+                    <th>Status</th>
+                    <td>
+                        <span class="fw-bold">
+                            {{ order.status|capfirst }}
+                        </span>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Build Exists</th>
+                    <td>
+                        {% if has_build %}
+                            <span class="text-warning fw-bold">Yes – inventory will be returned</span>
+                        {% else %}
+                            No
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+
+        </div>
+    </div>
+
+
+    <div class="alert alert-danger">
+        <strong>Warning:</strong> Cancelling this order will:
+        <ul class="mb-0">
+            <li>Cancel any active product build</li>
+            <li>Return consumed inventory back into stock</li>
+            <li>Mark the order as <strong>Cancelled</strong></li>
+        </ul>
+    </div>
+
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">Cancellation reason (optional)</label>
+            {{ form.reason }}
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">
+                Confirm Cancel Order
+            </button>
+
+            <a href="{% url 'orders_list' %}" class="btn btn-secondary">
+                Go Back
+            </a>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
