@@ -1,11 +1,70 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h1>Receive Stock</h1>
+<div class="container mt-4">
+    <h1>Receive Stock</h1>
 
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Receive</button>
-</form>
+    <p>
+        Add stock into inventory and create a StockMovement ledger entry.
+    </p>
 
+    {% if selected_component %}
+    <div class="alert alert-info">
+        Current stock for <strong>{{ selected_component.name }}</strong>:
+        <strong>{{ selected_component.stock_quantity }}</strong>
+        |
+        <a href="{% url 'component_ledger' id=selected_component.id %}">
+            View Ledger
+        </a>
+    </div>
+    {% endif %}
+
+    <p>
+        <a href="{% url 'component_list' %}" class="btn btn-secondary">Back to Stock</a>
+        <a href="{% url 'inventory_adjust' %}" class="btn btn-outline-secondary">Adjust Stock</a>
+    </p>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="{{ form.component.id_for_label }}" class="form-label">Component</label>
+                    {{ form.component }}
+                    {% if form.component.errors %}
+                        <div class="text-danger small">{{ form.component.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.quantity.id_for_label }}" class="form-label">Quantity Received</label>
+                    {{ form.quantity }}
+                    {% if form.quantity.errors %}
+                        <div class="text-danger small">{{ form.quantity.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.note.id_for_label }}" class="form-label">Note</label>
+                    {{ form.note }}
+                    {% if form.note.errors %}
+                        <div class="text-danger small">{{ form.note.errors }}</div>
+                    {% endif %}
+                    <div class="form-text">
+                        Optional. Example: Supplier delivery, initial stock load, or invoice reference.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Receive Stock</button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -27,20 +27,33 @@ class ProductBuildForm(forms.ModelForm):
         )
 
 class ReceiveStockForm(forms.Form):
-    component = forms.ModelChoiceField(queryset=Component.objects.all())
-    quantity = forms.IntegerField(min_value=1)
-    note = forms.CharField(widget=forms.Textarea, required=False)
+    component = forms.ModelChoiceField(
+        queryset=Component.objects.all(),
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+    quantity = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={"class": "form-control"})
+    )
+    note = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3})
+    )
 
 class AdjustStockForm(forms.Form):
-    component = forms.ModelChoiceField(queryset=Component.objects.all())
-    qty_delta = forms.IntegerField()  # can be +/-; 0 not allowed
-    note = forms.CharField(widget=forms.Textarea, required=True)
+    component = forms.ModelChoiceField(
+        queryset=Component.objects.all(),
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
 
-    def clean_qty_delta(self):
-        v = self.cleaned_data["qty_delta"]
-        if v == 0:
-            raise ValidationError("Adjustment cannot be 0.")
-        return v
+    qty_delta = forms.IntegerField(
+        widget=forms.NumberInput(attrs={"class": "form-control"})
+    )
+
+    note = forms.CharField(
+        required=True,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3})
+    )
 
 class ShipOrderForm(forms.Form):
     shipping_date = forms.DateField(

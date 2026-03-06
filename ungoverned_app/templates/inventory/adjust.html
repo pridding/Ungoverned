@@ -1,12 +1,77 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h1>Adjust Stock</h1>
-<p>Use positive numbers to add stock, negative to reduce. Note is required.</p>
+<div class="container mt-4">
+    <h1>Adjust Stock</h1>
 
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Adjust</button>
-</form>
+    <p>
+        Use <strong>positive numbers</strong> to add stock and <strong>negative numbers</strong> to remove stock.
+        A note is required so the adjustment is traceable in the inventory ledger.
+    </p>
 
+    {% if selected_component %}
+    <div class="alert alert-info">
+        Current stock for <strong>{{ selected_component.name }}</strong>:
+        <strong>{{ selected_component.stock_quantity }}</strong>
+        |
+        <a href="{% url 'component_ledger' id=selected_component.id %}">
+            View Ledger
+        </a>
+    </div>
+    {% endif %}
+
+    <p>
+        <a href="{% url 'component_list' %}" class="btn btn-secondary">Back to Stock</a>
+        <a href="{% url 'inventory_receive' %}" class="btn btn-outline-secondary">Receive Stock</a>
+    </p>
+
+    <div class="card">
+        <div class="card-body">
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="{{ form.component.id_for_label }}" class="form-label">Component</label>
+                    {{ form.component }}
+                    {% if form.component.errors %}
+                        <div class="text-danger small">{{ form.component.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.qty_delta.id_for_label }}" class="form-label">Adjustment Amount</label>
+                    {{ form.qty_delta }}
+                    {% if form.qty_delta.errors %}
+                        <div class="text-danger small">{{ form.qty_delta.errors }}</div>
+                    {% endif %}
+                    <div class="form-text">
+                        Example: <strong>+5</strong> to add five units, <strong>-2</strong> to remove two.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.note.id_for_label }}" class="form-label">Reason / Note</label>
+                    {{ form.note }}
+                    {% if form.note.errors %}
+                        <div class="text-danger small">{{ form.note.errors }}</div>
+                    {% endif %}
+                    <div class="form-text">
+                        Example: stock count correction, damaged component removal, etc.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Apply Adjustment</button>
+
+            </form>
+
+        </div>
+    </div>
+</div>
 {% endblock %}

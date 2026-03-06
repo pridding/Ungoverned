@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Low Stock Dashboard</h1>
+
+    <p>
+        Components at or below their low stock threshold.
+        <strong>Total: {{ low_stock_count }}</strong>
+    </p>
+
+    <p>
+        <a href="{% url 'component_list' %}" class="btn btn-secondary">Back to Stock</a>
+         <a href="{% url 'inventory_receive' %}?component={{ component.id }}" class="btn btn-sm btn-primary">Receive Stock</a>
+        <a href="{% url 'inventory_adjust' %}" class="btn btn-outline-secondary">Adjust Stock</a>
+    </p>
+
+    {% if components %}
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-header-blue">
+                <tr>
+                    <th>Name</th>
+                    <th>Current Stock</th>
+                    <th>Low Stock Threshold</th>
+                    <th>Production Method</th>
+                    <th>Suppliers</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for component in components %}
+                <tr>
+                    <td>
+                        <a href="{% url 'component_ledger' id=component.id %}">
+                            {{ component.name }}
+                        </a>
+                    </td>
+                <td>
+                    <span class="badge bg-{{ component.stock_level_status }}">
+                        {{ component.stock_quantity }}
+                    </span>
+                
+                    {% if component.stock_quantity == 0 %}
+                        <span class="badge bg-danger">OUT OF STOCK</span>
+                    {% elif component.stock_quantity <= component.low_stock_threshold %}
+                        <span class="badge bg-warning text-dark">LOW STOCK</span>
+                    {% endif %}
+                </td>
+                    <td>{{ component.low_stock_threshold }}</td>
+                    <td>{{ component.get_production_method_display }}</td>
+                    <td>
+                        {% for supplier in component.suppliers.all %}
+                            {{ supplier.name }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            <em>No Supplier</em>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <a href="{% url 'component_ledger' id=component.id %}" class="btn btn-sm btn-secondary">Ledger</a>
+                        <a href="{% url 'inventory_receive' %}" class="btn btn-sm btn-primary">Receive</a>
+                        <a href="{% url 'inventory_adjust' %}?component={{ component.id }}" class="btn btn-sm btn-outline-secondary">Adjust</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-success">
+            No components are currently below their low stock threshold.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

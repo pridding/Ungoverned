@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
+from django.urls import reverse
 from django.core.validators import MinLengthValidator
 
 class Customer(models.Model):
@@ -33,7 +34,11 @@ class Component(models.Model):
     description = models.TextField(blank=True, null=True)
     unit = models.CharField(max_length=50)
     cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    stock_quantity = models.IntegerField(default=0, editable=False)
+    stock_quantity = models.IntegerField(
+        default=0,
+        editable=False,
+        help_text="Managed automatically via stock movements. Use Receive Stock / Adjust Stock, not direct edits."
+    )
     production_method = models.CharField(max_length=20, choices=PRODUCTION_METHOD_CHOICES)
     notes = models.TextField(blank=True, null=True)
     suppliers = models.ManyToManyField(Supplier, through='SupplierComponent', related_name='components')
@@ -53,27 +58,43 @@ class Component(models.Model):
         else:
             return "success"  # green
 
-# ungoverned_app/models.py
-from django.core.validators import MinLengthValidator
 
 class StockMovement(models.Model):
+
     class Reason(models.TextChoices):
         RECEIVE = "RECEIVE", "Receive"
         ADJUSTMENT = "ADJUSTMENT", "Adjustment"
         BUILD_CONSUME = "BUILD_CONSUME", "Build Consume"
         BUILD_CANCEL_RETURN = "BUILD_CANCEL_RETURN", "Build Cancel Return"
-        ORDER_CANCEL_RETURN = "ORDER_CANCEL_RETURN", "Order Cancel Return"  # later
+        ORDER_CANCEL_RETURN = "ORDER_CANCEL_RETURN", "Order Cancel Return"
 
-    component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="stock_movements")
+    component = models.ForeignKey(
+        "Component",
+        on_delete=models.CASCADE,
+        related_name="stock_movements"
+    )
+
     qty_delta = models.IntegerField()
-    reason = models.CharField(max_length=32, choices=Reason.choices)
+
+    reason = models.CharField(
+        max_length=32,
+        choices=Reason.choices
+    )
 
     note = models.TextField(blank=True)
 
-    reference_type = models.CharField(max_length=64, blank=True)  # e.g. “ProductBuild”, “Order”, “Manual”
-    reference_id = models.IntegerField(null=True, blank=True)
+    reference_type = models.CharField(
+        max_length=64,
+        blank=True
+    )  # e.g. “ProductBuild”, “Order”, “Manual”
+
+    reference_id = models.IntegerField(
+        null=True,
+        blank=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -91,6 +112,72 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.component} {self.qty_delta} ({self.reason})"
+
+    # ---------------------------------------------------------
+    # Helper Properties (NEW)
+    # ---------------------------------------------------------
+
+    @property
+    def qty_display(self):
+        """Formatted quantity change (+/-)."""
+        if self.qty_delta > 0:
+            return f"+{self.qty_delta}"
+        return str(self.qty_delta)
+
+    @property
+    def reference_object(self):
+        """
+        Attempts to resolve the referenced object.
+        Uses reference_type + reference_id.
+        """
+        if not self.reference_type or not self.reference_id:
+            return None
+
+        try:
+            if self.reference_type == "ProductBuild":
+                from .models import ProductBuild
+                return ProductBuild.objects.filter(id=self.reference_id).first()
+
+            if self.reference_type == "Order":
+                from .models import Order
+                return Order.objects.filter(id=self.reference_id).first()
+
+        except Exception:
+            return None
+
+        return None
+
+    @property
+    def reference_label(self):
+        """Readable reference label for UI display."""
+        if self.reference_type == "ProductBuild":
+            return f"Build #{self.reference_id}"
+
+        if self.reference_type == "Order":
+            return f"Order #{self.reference_id}"
+
+        if self.reference_type:
+            return f"{self.reference_type} #{self.reference_id}"
+
+        return "-"
+
+    @property
+    def reference_url(self):
+        """
+        Returns a URL for the referenced object if a page exists.
+        Safe to use in templates.
+        """
+        if self.reference_type == "Order" and self.reference_id:
+            try:
+                return reverse("order_detail", args=[self.reference_id])
+            except Exception:
+                return None
+
+        # Only add if you create a Build detail page later
+        if self.reference_type == "ProductBuild" and self.reference_id:
+            return None
+
+        return None
 
 class SupplierComponent(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)

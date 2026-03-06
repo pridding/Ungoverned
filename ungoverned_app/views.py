@@ -134,7 +134,7 @@ def build_product_for_order(request, order_id):
             bom_lines = []
             for pc in bom:
                 required = pc.quantity_required * qty
-                on_hand = getattr(pc.component, "current_stock", None)  # <-- change to your actual stock field
+                on_hand = getattr(pc.component, "component.stock_quantity", None)  # <-- change to your actual stock field
                 shortage = None if on_hand is None else max(0, required - on_hand)
                 bom_lines.append({
                     "component": pc.component,
@@ -307,6 +307,8 @@ def order_list(request):
 
 @login_required
 def inventory_receive(request):
+    selected_component = None
+
     if request.method == "POST":
         form = ReceiveStockForm(request.POST)
         if form.is_valid():
@@ -324,14 +326,34 @@ def inventory_receive(request):
             )
             messages.success(request, f"Received {qty} into {component}.")
             return redirect("component_ledger", id=component.id)
+        else:
+            component_id = request.POST.get("component")
+            if component_id:
+                selected_component = Component.objects.filter(pk=component_id).first()
     else:
-        form = ReceiveStockForm()
+        initial_component_id = request.GET.get("component")
+        initial = {}
 
-    return render(request, "inventory/receive.html", {"form": form})
+        if initial_component_id:
+            selected_component = Component.objects.filter(pk=initial_component_id).first()
+            if selected_component:
+                initial["component"] = selected_component
 
+        form = ReceiveStockForm(initial=initial)
+
+    return render(
+        request,
+        "inventory/receive.html",
+        {
+            "form": form,
+            "selected_component": selected_component,
+        },
+    )
 
 @login_required
 def inventory_adjust(request):
+    selected_component = None
+
     if request.method == "POST":
         form = AdjustStockForm(request.POST)
         if form.is_valid():
@@ -351,27 +373,67 @@ def inventory_adjust(request):
                 messages.success(request, f"Adjusted {component} by {qty_delta}.")
                 return redirect("component_ledger", id=component.id)
             except ValidationError as e:
+                selected_component = component
                 form.add_error(None, e)
+        else:
+            component_id = request.POST.get("component")
+            if component_id:
+                selected_component = Component.objects.filter(pk=component_id).first()
     else:
-        form = AdjustStockForm()
+        initial_component_id = request.GET.get("component")
+        initial = {}
 
-    return render(request, "inventory/adjust.html", {"form": form})
+        if initial_component_id:
+            selected_component = Component.objects.filter(pk=initial_component_id).first()
+            if selected_component:
+                initial["component"] = selected_component
 
+        form = AdjustStockForm(initial=initial)
+
+    return render(
+        request,
+        "inventory/adjust.html",
+        {
+            "form": form,
+            "selected_component": selected_component,
+        },
+    )
 
 @login_required
 def component_ledger(request, id):
     component = get_object_or_404(Component, pk=id)
-    movements = (
+
+    reason_filter = request.GET.get("reason", "").strip()
+
+    movements_qs = (
         StockMovement.objects
         .filter(component=component)
         .select_related("created_by")
-        .order_by("-created_at")[:50]
+        .order_by("-created_at", "-id")
     )
+
+    if reason_filter:
+        movements_qs = movements_qs.filter(reason=reason_filter)
+
+    movements = list(movements_qs)
+
+    # Running balance from current stock backwards
+    running_balance = component.stock_quantity
+    for movement in movements:
+        movement.running_balance = running_balance
+        running_balance -= movement.qty_delta
+
+    reason_choices = StockMovement.Reason.choices
 
     return render(
         request,
         "inventory/ledger.html",
-        {"component": component, "movements": movements},
+        {
+            "component": component,
+            "movements": movements,
+            "reason_filter": reason_filter,
+            "reason_choices": reason_choices,
+        },
     )
 
 @login_required
@@ -570,3 +632,22 @@ def reopen_order(request, order_id):
 
     messages.success(request, f"Order #{order.id} reopened and moved back to Pending.")
     return redirect("orders_list")
+
+
+@login_required
+def low_stock_dashboard(request):
+    low_stock_components = (
+        Component.objects
+        .filter(stock_quantity__lte=F("low_stock_threshold"))
+        .prefetch_related("suppliers")
+        .order_by("stock_quantity", "name")
+    )
+
+    return render(
+        request,
+        "inventory/low_stock_dashboard.html",
+        {
+            "components": low_stock_components,
+            "low_stock_count": low_stock_components.count(),
+        },
+    )

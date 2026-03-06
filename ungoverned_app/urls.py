@@ -5,7 +5,10 @@ from . import views
 
 urlpatterns = [
     path('components/', views.component_list, name='component_list'),
+    path("components/low-stock/", views.low_stock_dashboard, name="low_stock_dashboard"),
     path("components/<int:id>/ledger/", views.component_ledger, name="component_ledger"),
+    path("inventory/receive/", views.inventory_receive, name="inventory_receive"),
+    path("inventory/adjust/", views.inventory_adjust, name="inventory_adjust"),
 
     path('vendetta-bom/', views.product_bom, name='product_bom'),
     path('vendetta-bom/build/', views.build_product, name='build_product'),
@@ -20,6 +23,4 @@ urlpatterns = [
     path("orders/<int:order_id>/", views.order_detail, name="order_detail"),
     path("orders/<int:order_id>/reopen/", views.reopen_order, name="reopen_order"),
 
-    path("inventory/receive/", views.inventory_receive, name="inventory_receive"),
-    path("inventory/adjust/", views.inventory_adjust, name="inventory_adjust"),
 ]

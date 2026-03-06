@@ -60,11 +60,20 @@ class StockMovementInline(admin.TabularInline):
     fields = ("created_at", "qty_delta", "reason", "reference_type", "reference_id", "created_by", "note")
     readonly_fields = fields
     show_change_link = True
-
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
     list_display = ('name', 'unit', 'stock_quantity', 'production_method', 'is_low_stock')
     list_filter = ('production_method',)
     search_fields = ('name',)
-    readonly_fields = ("stock_quantity",)
+    readonly_fields = ('stock_quantity',)
+    fields = (
+        'name',
+        'description',
+        'unit',
+        'cost_per_unit',
+        'stock_quantity',
+        'low_stock_threshold',
+        'production_method',
+        'notes',
+    )
     inlines = [StockMovementInline]
