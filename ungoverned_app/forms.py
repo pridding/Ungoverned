@@ -57,4 +57,15 @@ class ShipOrderForm(forms.Form):
     )
 
 class CancelOrderForm(forms.Form):
-    reason = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    reason = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"})
+    )
+
+class OrderNotesForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ["notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
+        }

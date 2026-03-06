@@ -4,12 +4,13 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.urls import reverse
-from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min
+from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum
+from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Product, Component, ProductComponent, Order, ProductBuild, StockMovement
-from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm
+from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement
+from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm
 from .services.inventory import record_stock_movement
 
 # Home page view
@@ -64,8 +65,8 @@ def orders_list(request):
     )
 
 def component_list(request):
-    components = Component.objects.all()
-    return render(request, 'inventory/component_list.html', {'components': components})
+    components = Component.objects.all().prefetch_related("suppliers")
+    return render(request, "inventory/component_list.html", {"components": components})
 
 def clean_quantity(self):
     qty = self.cleaned_data['quantity']
@@ -458,6 +459,7 @@ def ship_order(request, order_id):
 @login_required
 def cancel_order(request, order_id):
     order = get_object_or_404(Order, id=order_id)
+    has_build = ProductBuild.objects.filter(order=order).exists()
 
     if request.method == "POST":
         form = CancelOrderForm(request.POST)
@@ -469,10 +471,9 @@ def cancel_order(request, order_id):
                     messages.error(request, "Only Pending/Building orders can be cancelled.")
                     return redirect("orders_list")
 
-                # If there is a build, cancel it and return stock via your existing cancel_build logic
                 build = ProductBuild.objects.filter(order=order).first()
+
                 if build:
-                    # Inline your cancel_build logic OR call a shared service function
                     for pc in ProductComponent.objects.filter(product=build.product):
                         qty_to_return = pc.quantity_required * build.quantity
                         record_stock_movement(
@@ -485,14 +486,87 @@ def cancel_order(request, order_id):
                         )
                     build.delete()
 
-                order.status = Order.Status.CANCELLED
+                order.status = "cancelled"
                 order.cancelled_at = timezone.now()
                 order.cancellation_reason = form.cleaned_data["reason"] or ""
+                now = timezone.localtime(timezone.now())
+                user_label = getattr(request.user, "get_username", lambda: str(request.user))()
+                reason = (form.cleaned_data.get("reason") or "").strip() or "(no reason provided)"
+
+                audit_line = f"{now:%Y-%m-%d %H:%M} - Cancelled by {user_label}. Reason: {reason}"
+                order.notes = (order.notes.rstrip() + "\n" + audit_line) if order.notes else audit_line
                 order.save()
 
             messages.success(request, f"Order #{order.id} cancelled safely.")
             return redirect("orders_list")
+
     else:
         form = CancelOrderForm()
 
-    return render(request, "orders/cancel_order.html", {"order": order, "form": form})
+    return render(
+        request,
+        "orders/cancel_order.html",
+        {
+            "order": order,
+            "form": form,
+            "has_build": has_build,
+        },
+    )
+
+@login_required
+@login_required
+def order_detail(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    build = ProductBuild.objects.filter(order=order).order_by("built_at").first()
+    items = OrderItem.objects.filter(order=order).select_related("product")
+
+    if request.method == "POST":
+        form = OrderNotesForm(request.POST, instance=order)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Saved notes for Order #{order.id}.")
+            return redirect("order_detail", order_id=order.id)
+    else:
+        form = OrderNotesForm(instance=order)
+
+    return render(
+        request,
+        "orders/order_detail.html",
+        {
+            "order": order,
+            "form": form,
+            "items": items,
+            "build": build,
+        },
+    )
+
+@login_required
+@require_POST
+@transaction.atomic
+def reopen_order(request, order_id):
+    order = get_object_or_404(Order.objects.select_for_update(), id=order_id)
+
+    if order.status != "cancelled":
+        messages.error(request, "Only cancelled orders can be reopened.")
+        return redirect("orders_list")
+
+    # Safety: don't reopen if there is still a build object linked
+    if ProductBuild.objects.filter(order=order).exists():
+        messages.error(request, "This order still has a build record. Cancel the build first.")
+        return redirect("order_detail", order_id=order.id)
+
+    now = timezone.localtime(timezone.now())
+    user_label = getattr(request.user, "get_username", lambda: str(request.user))()
+
+    # Append audit line to notes
+    audit_line = f"{now:%Y-%m-%d %H:%M} - Reopened from CANCELLED to PENDING by {user_label}"
+    if order.notes:
+        order.notes = order.notes.rstrip() + "\n" + audit_line
+    else:
+        order.notes = audit_line
+
+    order.status = "pending"
+    order.save(update_fields=["status", "notes"])
+
+    messages.success(request, f"Order #{order.id} reopened and moved back to Pending.")
+    return redirect("orders_list")

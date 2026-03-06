@@ -6,28 +6,81 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Order #{{ order.id }}</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'orders_list' %}">Back</a>
+    <a class="btn btn-outline-secondary" href="{% url 'orders_list' %}">Back to Orders</a>
   </div>
 
   <div class="card mb-3">
-    <div class="card-header bg-light">
-      <strong>Order Info</strong>
-    </div>
+    <div class="card-header bg-light"><strong>Order Info</strong></div>
     <div class="card-body">
-      <p class="mb-1"><strong>Customer:</strong> {{ order.customer.name }}</p>
-      <p class="mb-1"><strong>Country:</strong> {{ order.customer.country|default:"N/A" }}</p>
-      <p class="mb-1"><strong>Order Date:</strong> {{ order.order_date }}</p>
-      <p class="mb-0"><strong>Status:</strong> {{ order.status|capfirst }}</p>
+      <div class="row">
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Customer:</strong> {{ order.customer.name }}</p>
+          <p class="mb-1"><strong>Country:</strong> {{ order.customer.country|default:"N/A" }}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Order Date:</strong> {{ order.order_date }}</p>
+          <p class="mb-1"><strong>Status:</strong> {{ order.status|capfirst }}</p>
+  
+          <p class="mb-0"><strong>Build Started:</strong>
+            {% with build=order.productbuild_set.first %}
+              {% if build %}
+                {{ build.built_at|date:"Y-m-d H:i" }}
+              {% else %}
+                —
+              {% endif %}
+            {% endwith %}
+          </p>
+  
+        </div>
+      </div>
     </div>
   </div>
 
-  {% if order.status == "cancelled" %}
-    <div class="card border-danger">
-      <div class="card-header bg-danger text-white">
-        <strong>Cancellation</strong>
-      </div>
+<div class="card mb-3">
+  <div class="card-header bg-light"><strong>Build Information</strong></div>
+  <div class="card-body">
+    {% if build %}
+      <p class="mb-1"><strong>Build ID:</strong> {{ build.id }}</p>
+      <p class="mb-1"><strong>Product:</strong> {{ build.product.name }}</p>
+      <p class="mb-1"><strong>Quantity:</strong> {{ build.quantity }}</p>
+      <p class="mb-0"><strong>Build Started:</strong> {{ build.built_at|date:"Y-m-d H:i" }}</p>
+    {% else %}
+      <span class="text-muted">No build linked to this order.</span>
+    {% endif %}
+  </div>
+</div>
+
+  <div class="card mb-3">
+    <div class="card-header bg-light"><strong>Order Items</strong></div>
+    <div class="card-body">
+      {% if items %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th style="width:120px;">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <span class="text-muted">No items found.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if order.cancellation_reason or order.cancelled_at %}
+    <div class="card mb-3 border-danger">
+      <div class="card-header bg-danger text-white"><strong>Cancellation</strong></div>
       <div class="card-body">
-        <p class="mb-1"><strong>Cancelled At:</strong> {{ order.cancelled_at|default:"—" }}</p>
+        <p class="mb-2"><strong>Cancelled At:</strong> {{ order.cancelled_at|default:"—" }}</p>
         <p class="mb-2"><strong>Reason:</strong></p>
         <div class="p-3 bg-light border rounded">
           {{ order.cancellation_reason|default:"(No reason provided)"|linebreaksbr }}
@@ -35,6 +88,27 @@
       </div>
     </div>
   {% endif %}
+
+  {% if order.status == "cancelled" %}
+    <form method="post" action="{% url 'reopen_order' order.id %}" class="mt-3">
+      {% csrf_token %}
+      <button class="btn btn-warning">Reopen Order (move to Pending)</button>
+    </form>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-header bg-light"><strong>Internal Notes</strong></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="{{ form.notes.id_for_label }}" class="form-label">Notes</label>
+          {{ form.notes }}
+        </div>
+        <button class="btn btn-primary" type="submit">Save Notes</button>
+      </form>
+    </div>
+  </div>
 
 </div>
 {% endblock %}

@@ -7,6 +7,7 @@ from django.db import transaction
 
 from ungoverned_app.models import Component, StockMovement
 
+print(">>> HIT services.inventory.record_stock_movement <<<")
 
 @dataclass
 class RefInfo:

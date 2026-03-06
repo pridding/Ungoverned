@@ -132,7 +132,6 @@ class Order(models.Model):
     order_date = models.DateField()
     shipping_date = models.DateField(blank=True, null=True)
     shipping_tracking_number = models.CharField(max_length=100, blank=True)
-
     warranty_months = models.IntegerField(default=12)
 
     # ✅ add default so new orders don't need status manually
@@ -145,6 +144,7 @@ class Order(models.Model):
     # ✅ optional but very useful for audit/history
     cancelled_at = models.DateTimeField(blank=True, null=True)
     cancellation_reason = models.TextField(blank=True, default="")
+    notes = models.TextField(blank=True, default="")  # general notes for anything
 
     def __str__(self):
         return f"Order #{self.id} for {self.customer}"

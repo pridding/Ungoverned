@@ -1,0 +1,84 @@
+Project: Ungoverned Django App
+
+Key models:
+- Order (status: pending, building, completed, shipped, cancelled)
+- ProductBuild
+- ProductComponent
+- StockMovement
+- OrderItem
+
+Key workflow:
+Orders → Start Build → Vendetta BOM page → Build This Product
+
+Build process:
+- ProductBuild created
+- StockMovement entries created (BUILD_CONSUME)
+- Order status changes pending → building
+
+Views:
+home(request):
+orders_list(request):
+component_list(request):
+clean_quantity(self):
+product_bom(request):
+build_product_for_order(request, order_id):
+build_product(request):
+cancel_build(request, build_id):
+get_max_buildable_units(product):
+order_list(request):
+inventory_receive(request):
+inventory_adjust(request):
+component_ledger(request, id):
+start_build(request, order_id):
+mark_shipped(request, order_id):
+mark_complete(request, order_id):
+ship_order(request, order_id):
+cancel_order(request, order_id):
+order_detail(request, order_id):
+
+Templates
+templates/home.html
+templates/base.html
+
+templates/inventory/ledger.html
+templates/inventory/adjust.html
+templates/inventory/receive.html
+templates/inventory/component_list.html
+
+templates/build/product_bom.html
+
+templates/orders/orders_list.html
+templates/orders/build_for_order.html
+templates/orders/order_detail.html
+templates/orders/ship_order.html
+templates/orders/cancel_order.html
+
+Pending → Building → Completed → Shipped
+with the safety rails:
+	•	Cancel Order
+	•	Cancel Build (inventory returned)
+	•	Reopen Order
+	•	StockMovement ledger
+	•	Order notes + audit trail
+
+Where the system now stands (architecturally)
+
+You now have a pretty clean separation:
+
+Orders
+	•	business workflow
+	•	customer + shipping
+
+Builds
+	•	production activity
+	•	consumes components
+
+StockMovement
+	•	immutable inventory ledger
+	•	source of truth for stock changes
+
+Order Notes
+	•	lightweight audit trail
+	•	human context
+
+This is exactly the structure used in many real ERP/MRP systems, just simplified.
