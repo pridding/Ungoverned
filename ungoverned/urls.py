@@ -21,5 +21,6 @@ from ungoverned_app import views
 urlpatterns = [
     path('', views.home, name='home'),  # Root URL redirects to the home page
     path('admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')),
     path('', include('ungoverned_app.urls')),
 ]

@@ -1,9 +1,11 @@
 # ungoverned_app/urls.py
 
+from django.contrib import admin
 from django.urls import path
-from . import views
+from ungoverned_app import views
 
 urlpatterns = [
+
     path('components/', views.component_list, name='component_list'),
     path("components/low-stock/", views.low_stock_dashboard, name="low_stock_dashboard"),
     path("components/<int:id>/ledger/", views.component_ledger, name="component_ledger"),

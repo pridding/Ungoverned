@@ -3,52 +3,77 @@
 {% block content %}
 <div class="container mt-4">
     <h1>Stock</h1>
-      <p>
-          <a href="{% url 'inventory_receive' %}" class="btn btn-primary">Receive Stock</a>
-          <a href="{% url 'inventory_adjust' %}" class="btn btn-secondary">Adjust Stock</a>
-          <a href="{% url 'low_stock_dashboard' %}" class="btn btn-warning">Low Stock Dashboard</a>
-      </p>
-    <table class="table table-striped table-bordered">
-        <thead class="table-header-blue">
-            <tr>
-                <th>Name</th>
-                <th>Stock Quantity</th>
-                <th>Production Method</th>
-                <th>Suppliers</th>
-                <th>Cost per Unit</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for component in components %}
-            <tr>
-                <td>
-                    <a href="{% url 'component_ledger' id=component.id %}">
-                        {{ component.name }}
-                    </a>
-                </td>
-                <td>
-                    <span class="badge bg-{{ component.stock_level_status }}">
-                        {{ component.stock_quantity }}
-                    </span>
-                
-                    {% if component.stock_quantity == 0 %}
-                        <span class="badge bg-danger">OUT</span>
-                    {% elif component.stock_quantity <= component.low_stock_threshold %}
-                        <span class="badge bg-warning text-dark">LOW</span>
-                    {% endif %}
-                </td>
-                <td>{{ component.get_production_method_display }}</td>
-                <td>
-                    {% for supplier in component.suppliers.all %}
-                        {{ supplier.name }}{% if not forloop.last %}, {% endif %}
-                    {% empty %}
-                        <em>No Supplier</em>
-                    {% endfor %}
-                </td>
-                <td>${{ component.cost_per_unit }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <p>
+        <a href="{% url 'inventory_receive' %}" class="btn btn-primary">Receive Stock</a>
+        <a href="{% url 'inventory_adjust' %}" class="btn btn-secondary">Adjust Stock</a>
+        <a href="{% url 'low_stock_dashboard' %}" class="btn btn-warning">Low Stock Dashboard</a>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-header-blue">
+                <tr>
+                    <th>Name</th>
+                    <th>Top Level Item</th>
+                    <th>Sub Assembly</th>
+                    <th>Material</th>
+                    <th>Qty / Vehicle</th>
+                    <th>Stock Quantity</th>
+                    <th>Production Method</th>
+                    <th>Suppliers</th>
+                    <th>Cost / Unit</th>
+                    <th>Cost / Vehicle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for component in components %}
+                <tr>
+                    <td>
+                        <a href="{% url 'component_ledger' id=component.id %}">
+                            {{ component.name }}
+                        </a>
+                    </td>
+                    <td>{{ component.top_level_item|default:"-" }}</td>
+                    <td>{{ component.sub_assembly|default:"-" }}</td>
+                    <td>{{ component.material|default:"-" }}</td>
+                    <td>{{ component.qty_per_vehicle|default:"-" }}</td>
+                    <td>
+                        <span class="badge bg-{{ component.stock_level_status }}">
+                            {{ component.stock_quantity }}
+                        </span>
+
+                        {% if component.stock_quantity == 0 %}
+                            <span class="badge bg-danger">OUT</span>
+                        {% elif component.stock_quantity <= component.low_stock_threshold %}
+                            <span class="badge bg-warning text-dark">LOW</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ component.get_production_method_display }}</td>
+                    <td>
+                        {% for supplier in component.suppliers.all %}
+                            {{ supplier.name }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            <em>No Supplier</em>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if component.cost_per_unit is not None %}
+                            ${{ component.cost_per_unit }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if component.cost_per_vehicle is not None %}
+                            ${{ component.cost_per_vehicle }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

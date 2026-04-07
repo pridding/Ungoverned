@@ -62,13 +62,37 @@ class StockMovementInline(admin.TabularInline):
     show_change_link = True
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'unit', 'stock_quantity', 'production_method', 'is_low_stock')
-    list_filter = ('production_method',)
-    search_fields = ('name',)
+    list_display = (
+        'name',
+        'top_level_item',
+        'sub_assembly',
+        'material',
+        'qty_per_vehicle',
+        'unit',
+        'stock_quantity',
+        'production_method',
+        'is_low_stock',
+    )
+    list_filter = (
+        'production_method',
+        'top_level_item',
+        'sub_assembly',
+        'material',
+    )
+    search_fields = (
+        'name',
+        'top_level_item',
+        'sub_assembly',
+        'material',
+    )
     readonly_fields = ('stock_quantity',)
     fields = (
         'name',
         'description',
+        'top_level_item',
+        'sub_assembly',
+        'material',
+        'qty_per_vehicle',
         'unit',
         'cost_per_unit',
         'stock_quantity',

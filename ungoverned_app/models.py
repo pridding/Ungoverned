@@ -42,22 +42,33 @@ class Component(models.Model):
     production_method = models.CharField(max_length=20, choices=PRODUCTION_METHOD_CHOICES)
     notes = models.TextField(blank=True, null=True)
     suppliers = models.ManyToManyField(Supplier, through='SupplierComponent', related_name='components')
-    low_stock_threshold = models.IntegerField(default=10)  
+    low_stock_threshold = models.IntegerField(default=10)
+
+    # BOM fields
+    top_level_item = models.CharField(max_length=150, blank=True, null=True)
+    sub_assembly = models.CharField(max_length=150, blank=True, null=True)
+    material = models.CharField(max_length=100, blank=True, null=True)
+    qty_per_vehicle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return self.name
 
-    def is_low_stock(self):  # <-- and added this method
+    def is_low_stock(self):
         return self.stock_quantity < self.low_stock_threshold
 
     def stock_level_status(self):
         if self.stock_quantity == 0:
-            return "danger"   # red
+            return "danger"
         elif self.stock_quantity <= self.low_stock_threshold:
-            return "warning"  # yellow
+            return "warning"
         else:
-            return "success"  # green
+            return "success"
 
+    @property
+    def cost_per_vehicle(self):
+        if self.cost_per_unit is not None and self.qty_per_vehicle is not None:
+            return self.cost_per_unit * self.qty_per_vehicle
+        return None
 
 class StockMovement(models.Model):
 

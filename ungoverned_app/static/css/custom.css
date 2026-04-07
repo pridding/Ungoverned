@@ -24,3 +24,18 @@ table thead.table-header-blue th {
   background-color: #007bff !important;
   color: white !important;
 }
+
+.navbar .nav-link {
+    opacity: 0.85;
+    transition: all 0.2s ease;
+}
+
+.navbar .nav-link:hover {
+    opacity: 1;
+}
+
+.navbar .nav-link.active {
+    font-weight: bold;
+    opacity: 1;
+    border-bottom: 2px solid white;
+}
