@@ -12,8 +12,8 @@ urlpatterns = [
     path("inventory/receive/", views.inventory_receive, name="inventory_receive"),
     path("inventory/adjust/", views.inventory_adjust, name="inventory_adjust"),
 
-    path('vendetta-bom/', views.product_bom, name='product_bom'),
-    path('vendetta-bom/build/', views.build_product, name='build_product'),
+    path('build/', views.product_bom, name='product_bom'),
+    path('build/submit/', views.build_product, name='build_product'),
     path('builds/<int:build_id>/cancel/', views.cancel_build, name='cancel_build'),
 
     path('orders/', views.orders_list, name='orders_list'),
@@ -21,7 +21,6 @@ urlpatterns = [
     path("orders/<int:order_id>/mark-complete/", views.mark_complete, name="mark_complete"),
     path("orders/<int:order_id>/ship/", views.ship_order, name="ship_order"),
     path("orders/<int:order_id>/cancel/", views.cancel_order, name="cancel_order"),
-    path("orders/<int:order_id>/build/", views.build_product_for_order, name="build_product_for_order"),
     path("orders/<int:order_id>/", views.order_detail, name="order_detail"),
     path("orders/<int:order_id>/reopen/", views.reopen_order, name="reopen_order"),
 

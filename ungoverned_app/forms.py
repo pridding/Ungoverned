@@ -2,10 +2,7 @@ from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .models import ProductBuild, Order, Component
-
-
-from django import forms
-from .models import ProductBuild, Order
+from django.db.models import Case, When, Value, IntegerField, F
 
 class ProductBuildForm(forms.ModelForm):
     class Meta:
@@ -28,7 +25,7 @@ class ProductBuildForm(forms.ModelForm):
 
 class ReceiveStockForm(forms.Form):
     component = forms.ModelChoiceField(
-        queryset=Component.objects.all(),
+        queryset=Component.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"})
     )
     quantity = forms.IntegerField(
@@ -40,9 +37,28 @@ class ReceiveStockForm(forms.Form):
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3})
     )
 
+    def __init__(self, *args, selected_component=False, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["component"].queryset = (
+            Component.objects
+            .annotate(
+                stock_priority=Case(
+                    When(stock_quantity=0, then=Value(0)),
+                    When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("stock_priority", "name")
+        )
+
+        if selected_component:
+            self.fields["quantity"].widget.attrs["autofocus"] = "autofocus"
+
 class AdjustStockForm(forms.Form):
     component = forms.ModelChoiceField(
-        queryset=Component.objects.all(),
+        queryset=Component.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"})
     )
 
@@ -54,6 +70,25 @@ class AdjustStockForm(forms.Form):
         required=True,
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3})
     )
+
+    def __init__(self, *args, selected_component=False, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["component"].queryset = (
+            Component.objects
+            .annotate(
+                stock_priority=Case(
+                    When(stock_quantity=0, then=Value(0)),
+                    When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("stock_priority", "name")
+        )
+
+        if selected_component:
+            self.fields["qty_delta"].widget.attrs["autofocus"] = "autofocus"
 
 class ShipOrderForm(forms.Form):
     shipping_date = forms.DateField(

@@ -4,7 +4,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.urls import reverse
-from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum
+from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum, ExpressionWrapper, DecimalField
 from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -64,8 +64,29 @@ def orders_list(request):
         {"orders": orders, "status_filter": status_filter},
     )
 
+from django.db.models import Case, When, Value, IntegerField, F
+
 def component_list(request):
-    components = Component.objects.all().prefetch_related("suppliers")
+    components = (
+        Component.objects
+        .all()
+        .prefetch_related("suppliers")
+        .annotate(
+            stock_priority=Case(
+                When(stock_quantity=0, then=Value(0)),
+                When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by(
+            "top_level_item",
+            "stock_priority",
+            "sub_assembly",
+            "stock_quantity",
+            "name",
+        )
+    )
     return render(request, "inventory/component_list.html", {"components": components})
 
 def clean_quantity(self):
@@ -76,18 +97,14 @@ def clean_quantity(self):
 
 def product_bom(request):
     product = get_object_or_404(Product, name="Vendetta")
-    product_components = ProductComponent.objects.filter(product=product).select_related('component')
-    buildable_units = get_max_buildable_units(product)
+    capacity_data = get_build_capacity_data(product)
     recent_builds = ProductBuild.objects.filter(product=product).order_by('-built_at')[:5]
 
     preselect_order_id = request.GET.get("order")
-
-    # ✅ ONLY pending orders are selectable
     eligible_orders = Order.objects.filter(status="pending").select_related("customer")
 
     selected_order = None
     if preselect_order_id:
-        # ✅ only preselect if the order is pending
         selected_order = eligible_orders.filter(id=preselect_order_id).first()
         if not selected_order:
             messages.warning(request, "That order is not Pending, so it can't be started.")
@@ -97,97 +114,13 @@ def product_bom(request):
         initial={"order": selected_order} if selected_order else None,
     )
 
-    return render(request, 'build/product_bom.html', {
-        'product': product,
-        'product_components': product_components,
-        'buildable_units': buildable_units,
-        'recent_builds': recent_builds,
-        'form': form,
-        'selected_order': selected_order,
+    return render(request, "build/product_bom.html", {
+        "product": product,
+        "build_capacity": capacity_data,
+        "recent_builds": recent_builds,
+        "form": form,
+        "selected_order": selected_order,
     })
-
-@login_required
-def build_product_for_order(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
-
-    if order.status != "pending":
-        messages.error(request, "This order is not Pending, so it can't be started.")
-        return redirect("orders_list")
-
-    # Load the order items (your through model has related_name='order_items')
-    items = order.order_items.select_related("product").all()
-
-    if not items.exists():
-        messages.error(request, "This order has no items to build.")
-        return redirect("orders_list")
-
-    # ====== GET: show inventory check ======
-    if request.method == "GET":
-        # Build a simple “shortages” structure to display.
-        # This assumes Component has a stock/quantity field available; adjust to your actual stock field.
-        lines = []
-        for item in items:
-            product = item.product
-            qty = item.quantity
-
-            bom = ProductComponent.objects.filter(product=product).select_related("component")
-            bom_lines = []
-            for pc in bom:
-                required = pc.quantity_required * qty
-                on_hand = getattr(pc.component, "component.stock_quantity", None)  # <-- change to your actual stock field
-                shortage = None if on_hand is None else max(0, required - on_hand)
-                bom_lines.append({
-                    "component": pc.component,
-                    "required": required,
-                    "on_hand": on_hand,
-                    "shortage": shortage,
-                })
-
-            lines.append({
-                "product": product,
-                "qty": qty,
-                "bom_lines": bom_lines,
-            })
-
-        return render(request, "orders/build_for_order.html", {
-            "order": order,
-            "items": items,
-            "lines": lines,
-        })
-
-    # ====== POST: actually perform the build ======
-    with transaction.atomic():
-        order = Order.objects.select_for_update().get(id=order_id)
-        if order.status != "pending":
-            messages.error(request, "Order is no longer Pending.")
-            return redirect("orders_list")
-
-        # create build rows + consume stock
-        for item in order.order_items.select_related("product").all():
-            build = ProductBuild.objects.create(
-                order=order,
-                product=item.product,
-                quantity=item.quantity,
-                # built_at auto_now_add handles timestamp
-            )
-
-            for pc in ProductComponent.objects.filter(product=item.product):
-                qty_delta = -(pc.quantity_required * item.quantity)
-
-                record_stock_movement(
-                    component_id=pc.component.id,
-                    qty_delta=qty_delta,
-                    reason=StockMovement.Reason.BUILD_CONSUME,  # use your actual reason enum
-                    user=request.user,
-                    note=f"Order #{order.id} started build #{build.id}",
-                    ref=build,
-                )
-
-        order.status = "building"
-        order.save()
-
-    messages.success(request, f"Order #{order.id} moved to Building.")
-    return redirect("orders_list")
 
 @require_POST
 @login_required
@@ -195,7 +128,6 @@ def build_product(request):
     product = get_object_or_404(Product, name="Vendetta")
     form = ProductBuildForm(request.POST)
 
-    # Pull the raw order id early so we can preserve it on redirects even if form invalid
     order_id = request.POST.get("order") or ""
 
     def bom_redirect():
@@ -207,9 +139,31 @@ def build_product(request):
         return bom_redirect()
 
     quantity = form.cleaned_data["quantity"]
-    order = form.cleaned_data["order"]  # may be None
+    order = form.cleaned_data["order"]
 
-    product_components = ProductComponent.objects.filter(product=product).select_related("component")
+    product_components = (
+        ProductComponent.objects
+        .filter(product=product)
+        .select_related("component")
+    )
+
+    if not product_components.exists():
+        messages.error(request, "Cannot build product because no BOM components are defined.")
+        return bom_redirect()
+
+    invalid_bom_components = [
+        pc.component.name
+        for pc in product_components
+        if pc.quantity_required is None or pc.quantity_required <= 0
+    ]
+
+    if invalid_bom_components:
+        messages.error(
+            request,
+            "Cannot build product because some BOM quantities are missing or invalid: "
+            f"{', '.join(invalid_bom_components)}."
+        )
+        return bom_redirect()
 
     insufficient = [
         pc.component.name
@@ -226,11 +180,18 @@ def build_product(request):
 
     try:
         with transaction.atomic():
-            # Lock the order row if present (prevents race/double clicks)
             if order:
                 order = Order.objects.select_for_update().get(id=order.id)
 
-            build = ProductBuild.objects.create(product=product, order=order, quantity=quantity)
+                if order.status != "pending":
+                    messages.error(request, "That order is no longer Pending, so it can't be started.")
+                    return bom_redirect()
+
+            build = ProductBuild.objects.create(
+                product=product,
+                order=order,
+                quantity=quantity,
+            )
 
             for pc in product_components:
                 qty_to_consume = pc.quantity_required * quantity
@@ -244,7 +205,6 @@ def build_product(request):
                     ref=build,
                 )
 
-            # ✅ Only move Pending -> Building (don’t overwrite other states)
             if order and order.status == "pending":
                 order.status = "building"
                 order.save()
@@ -285,6 +245,88 @@ def cancel_build(request, build_id):
 
     messages.success(request, f"Cancelled build of {build.quantity} unit(s) of {build.product.name}.")
     return redirect('product_bom')
+
+def get_build_capacity_data(product):
+    product_components = (
+        ProductComponent.objects
+        .filter(product=product)
+        .select_related("component")
+    )
+
+    rows = []
+    valid_rows = []
+    warnings = []
+
+    for pc in product_components:
+        qty_required = pc.quantity_required
+        stock_quantity = pc.component.stock_quantity
+
+        row = {
+            "product_component": pc,
+            "component": pc.component,
+            "quantity_required": qty_required,
+            "stock_quantity": stock_quantity,
+            "units_possible": None,
+            "is_limiting": False,
+            "issue": None,
+            "counts_toward_capacity": False,
+        }
+
+        if qty_required is None:
+            row["issue"] = "missing_qty"
+        elif qty_required <= 0:
+            row["issue"] = "invalid_qty"
+        else:
+            row["units_possible"] = int(stock_quantity / qty_required)
+            row["counts_toward_capacity"] = True
+            valid_rows.append(row)
+
+        rows.append(row)
+
+    if any(row["issue"] == "missing_qty" for row in rows):
+        warnings.append("Some BOM lines are missing required quantity, so build capacity may be incomplete.")
+
+    if any(row["issue"] == "invalid_qty" for row in rows):
+        warnings.append("Some BOM lines have zero or invalid required quantity and were excluded from build capacity.")
+
+    if not valid_rows:
+        return {
+            "buildable_units": None,
+            "limiting_components": [],
+            "has_incomplete_bom": bool(warnings),
+            "warnings": warnings,
+            "component_rows": rows,
+        }
+
+    buildable_units = min(row["units_possible"] for row in valid_rows)
+
+    limiting_components = []
+    for row in valid_rows:
+        if row["units_possible"] == buildable_units:
+            row["is_limiting"] = True
+            limiting_components.append(row["component"])
+
+    def row_sort_key(row):
+        # Priority order:
+        # 0 = out of stock
+        # 1 = limiting
+        # 2 = everything else
+        if row["counts_toward_capacity"] and row["units_possible"] == 0:
+            return 0
+        elif row["is_limiting"]:
+            return 1
+        else:
+            return 2
+    
+    rows.sort(key=row_sort_key)
+
+    return {
+        "buildable_units": buildable_units,
+        "limiting_components": limiting_components,
+        "has_incomplete_bom": bool(warnings),
+        "warnings": warnings,
+        "component_rows": rows,
+    }
 
 def get_max_buildable_units(product):
     product_components = ProductComponent.objects.filter(product=product)
@@ -337,9 +379,12 @@ def inventory_receive(request):
         if initial_component_id:
             selected_component = Component.objects.filter(pk=initial_component_id).first()
             if selected_component:
-                initial["component"] = selected_component
+                initial["component"] = selected_component.id
 
-        form = ReceiveStockForm(initial=initial)
+                form = ReceiveStockForm(
+                   initial=initial,
+                   selected_component=bool(selected_component),
+                )
 
     return render(
         request,
@@ -386,9 +431,12 @@ def inventory_adjust(request):
         if initial_component_id:
             selected_component = Component.objects.filter(pk=initial_component_id).first()
             if selected_component:
-                initial["component"] = selected_component
+                initial["component"] = selected_component.id
 
-        form = AdjustStockForm(initial=initial)
+        form = AdjustStockForm(
+            initial=initial,
+            selected_component=bool(selected_component),
+        )
 
     return render(
         request,
@@ -638,7 +686,14 @@ def reopen_order(request, order_id):
 def low_stock_dashboard(request):
     low_stock_components = (
         Component.objects
-        .filter(stock_quantity__lte=F("low_stock_threshold"))
+        .exclude(qty_per_vehicle__isnull=True)
+        .annotate(
+            calculated_low_stock_threshold=ExpressionWrapper(
+                F("qty_per_vehicle") * 3,
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            )
+        )
+        .filter(stock_quantity__lte=F("calculated_low_stock_threshold"))
         .prefetch_related("suppliers")
         .order_by("stock_quantity", "name")
     )

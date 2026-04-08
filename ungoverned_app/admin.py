@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Supplier, Component, SupplierComponent, ProductComponent, Order, OrderItem, ProductOption, StockMovement
+from .models import Customer, Supplier, Component, SupplierComponent, ProductComponent, Order, OrderItem, ProductOption, StockMovement, Product
 
 class ProductComponentInline(admin.TabularInline):
     model = ProductComponent
@@ -60,6 +60,7 @@ class StockMovementInline(admin.TabularInline):
     fields = ("created_at", "qty_delta", "reason", "reference_type", "reference_id", "created_by", "note")
     readonly_fields = fields
     show_change_link = True
+
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
     list_display = (
@@ -68,10 +69,11 @@ class ComponentAdmin(admin.ModelAdmin):
         'sub_assembly',
         'material',
         'qty_per_vehicle',
+        'display_low_stock_threshold',
         'unit',
         'stock_quantity',
         'production_method',
-        'is_low_stock',
+        'display_is_low_stock',
     )
     list_filter = (
         'production_method',
@@ -85,7 +87,10 @@ class ComponentAdmin(admin.ModelAdmin):
         'sub_assembly',
         'material',
     )
-    readonly_fields = ('stock_quantity',)
+    readonly_fields = (
+        'stock_quantity',
+        'display_low_stock_threshold',
+    )
     fields = (
         'name',
         'description',
@@ -93,11 +98,24 @@ class ComponentAdmin(admin.ModelAdmin):
         'sub_assembly',
         'material',
         'qty_per_vehicle',
+        'display_low_stock_threshold',
         'unit',
         'cost_per_unit',
         'stock_quantity',
-        'low_stock_threshold',
         'production_method',
         'notes',
     )
     inlines = [StockMovementInline]
+
+    @admin.display(description="Low Stock Threshold")
+    def display_low_stock_threshold(self, obj):
+        return obj.low_stock_threshold if obj.low_stock_threshold is not None else "-"
+
+    @admin.display(boolean=True, description="Low Stock")
+    def display_is_low_stock(self, obj):
+        return obj.is_low_stock()
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "description")
+    inlines = [ProductComponentInline]

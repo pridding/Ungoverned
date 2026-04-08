@@ -2,10 +2,47 @@
 {% load static %}
 {% load widget_tweaks %}
 
-
 {% block content %}
 <div class="container mt-5">
     <h1>{{ product.name }}</h1>
+
+    <div class="mt-4 mb-4">
+        <h3>Build Capacity</h3>
+
+        {% if build_capacity.buildable_units is not None %}
+            <p class="mb-1">
+                <strong>Currently buildable:</strong>
+                {{ build_capacity.buildable_units }} unit{{ build_capacity.buildable_units|pluralize }}
+
+                {% if build_capacity.buildable_units == 0 %}
+                    <span class="badge bg-danger ms-2">Cannot build</span>
+                {% elif build_capacity.buildable_units == 1 %}
+                    <span class="badge bg-warning text-dark ms-2">Only 1 unit possible</span>
+                {% elif build_capacity.buildable_units <= 3 %}
+                    <span class="badge bg-warning text-dark ms-2">Low capacity</span>
+                {% endif %}
+            </p>
+        {% else %}
+            <p class="mb-1">
+                <strong>Currently buildable:</strong> Unavailable
+            </p>
+        {% endif %}
+
+        {% if build_capacity.limiting_components %}
+            <p class="mb-1">
+                <strong>Limiting component{{ build_capacity.limiting_components|length|pluralize }}:</strong>
+                {% for component in build_capacity.limiting_components %}
+                    {{ component.name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% for warning in build_capacity.warnings %}
+            <div class="alert alert-warning py-2 mb-2">
+                {{ warning }}
+            </div>
+        {% endfor %}
+    </div>
 
     <h3 class="mt-4">Bill of Materials</h3>
     <table class="table table-striped">
@@ -14,39 +51,92 @@
                 <th>Component</th>
                 <th># Required</th>
                 <th># In-Stock</th>
+                <th>Buildable From This Component</th>
+                <th>Status</th>
             </tr>
         </thead>
         <tbody>
-            {% for pc in product_components %}
-              <tr class="{% if pc.component.stock_quantity < pc.quantity_required %}table-danger{% endif %}">
-                <td>{{ pc.component.name }}</td>
-                <td>{{ pc.quantity_required }}</td>
-                <td>{{ pc.component.stock_quantity }}</td>
-              </tr>
+            {% for row in build_capacity.component_rows %}
+                <tr
+                    class="
+                        {% if row.issue == 'missing_qty' or row.issue == 'invalid_qty' %}
+                            table-warning
+                        {% elif row.counts_toward_capacity and row.units_possible == 0 %}
+                            table-danger
+                        {% elif row.is_limiting %}
+                            table-warning fw-bold
+                        {% endif %}
+                    "
+                >
+                    <td>{{ row.component.name }}</td>
+
+                    <td>
+                        {% if row.quantity_required is not None %}
+                            {{ row.quantity_required }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td>{{ row.stock_quantity }}</td>
+
+                    <td>
+                        {% if row.counts_toward_capacity %}
+                            {{ row.units_possible }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if row.issue == "missing_qty" %}
+                            <span class="badge bg-secondary">Missing qty</span>
+                        {% elif row.issue == "invalid_qty" %}
+                            <span class="badge bg-secondary">Invalid qty</span>
+                        {% elif row.counts_toward_capacity and row.units_possible == 0 %}
+                            <span class="badge bg-danger">Out</span>
+                        {% elif row.is_limiting %}
+                            <span class="badge bg-warning text-dark">Limiting</span>
+                        {% elif row.counts_toward_capacity %}
+                            <span class="badge bg-success">Available</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark">N/A</span>
+                        {% endif %}
+                    </td>
+                </tr>
             {% empty %}
-            <tr>
-                <td colspan="2">No components assigned yet.</td>
-            </tr>
+                <tr>
+                    <td colspan="5">No components assigned yet.</td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <!-- Build Form -->
     <form method="post" action="{% url 'build_product' %}" class="d-flex align-items-center mb-3 flex-wrap gap-2">
         {% csrf_token %}
-    
-        {{ form.quantity|add_class:"form-control w-auto" }}
+
+        {% render_field form.quantity class+="form-control w-auto" max=build_capacity.buildable_units %}
         {{ form.order|add_class:"form-select w-auto" }}
-    
-        <button type="submit" class="btn btn-success">Build This Product</button>
-    
+
+        <button 
+            type="submit" 
+            class="btn btn-success"
+            {% if build_capacity.buildable_units == 0 %}disabled{% endif %}
+        >
+            {% if build_capacity.buildable_units == 0 %}
+                Cannot Build
+            {% else %}
+                Build This Product
+            {% endif %}
+        </button>
+
         {% if selected_order %}
-          <span class="badge bg-secondary">
-            Order #{{ selected_order.id }} — {{ selected_order.customer.name }}
-          </span>
+            <span class="badge bg-secondary">
+                Order #{{ selected_order.id }} — {{ selected_order.customer.name }}
+            </span>
         {% endif %}
     </form>
-    
+
     <h5 class="mt-4">Build History</h5>
     <ul class="list-group">
         {% for build in recent_builds %}
@@ -69,8 +159,5 @@
             <li class="list-group-item">No builds yet.</li>
         {% endfor %}
     </ul>
-
-    <p><strong>Buildable units:</strong> {{ buildable_units }}</p>
-
 </div>
 {% endblock %}

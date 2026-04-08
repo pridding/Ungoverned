@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.urls import reverse
 from django.core.validators import MinLengthValidator
+from decimal import Decimal
 
 class Customer(models.Model):
     name = models.CharField(max_length=255)
@@ -32,6 +33,12 @@ class Component(models.Model):
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+
+    top_level_item = models.CharField(max_length=150, blank=True, null=True)
+    sub_assembly = models.CharField(max_length=150, blank=True, null=True)
+    material = models.CharField(max_length=100, blank=True, null=True)
+    qty_per_vehicle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
     unit = models.CharField(max_length=50)
     cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     stock_quantity = models.IntegerField(
@@ -42,28 +49,31 @@ class Component(models.Model):
     production_method = models.CharField(max_length=20, choices=PRODUCTION_METHOD_CHOICES)
     notes = models.TextField(blank=True, null=True)
     suppliers = models.ManyToManyField(Supplier, through='SupplierComponent', related_name='components')
-    low_stock_threshold = models.IntegerField(default=10)
-
-    # BOM fields
-    top_level_item = models.CharField(max_length=150, blank=True, null=True)
-    sub_assembly = models.CharField(max_length=150, blank=True, null=True)
-    material = models.CharField(max_length=100, blank=True, null=True)
-    qty_per_vehicle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return self.name
 
+    @property
+    def low_stock_threshold(self):
+        if self.qty_per_vehicle is None:
+            return None
+        return self.qty_per_vehicle * Decimal("3")
+    
     def is_low_stock(self):
-        return self.stock_quantity < self.low_stock_threshold
-
+        threshold = self.low_stock_threshold
+        if threshold is None:
+            return False
+        return self.stock_quantity <= threshold
+    
     def stock_level_status(self):
+        threshold = self.low_stock_threshold
         if self.stock_quantity == 0:
             return "danger"
-        elif self.stock_quantity <= self.low_stock_threshold:
+        elif threshold is not None and self.stock_quantity <= threshold:
             return "warning"
         else:
             return "success"
-
+    
     @property
     def cost_per_vehicle(self):
         if self.cost_per_unit is not None and self.qty_per_vehicle is not None:
@@ -206,11 +216,18 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-
 class ProductComponent(models.Model):
-    product = models.ForeignKey('Product', on_delete=models.CASCADE)
-    component = models.ForeignKey('Component', on_delete=models.CASCADE)
+    product = models.ForeignKey("Product", on_delete=models.CASCADE)
+    component = models.ForeignKey("Component", on_delete=models.CASCADE)
     quantity_required = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "component"],
+                name="unique_product_component",
+            )
+        ]
 
     def __str__(self):
         return f"{self.quantity_required} x {self.component.name} for {self.product.name}"

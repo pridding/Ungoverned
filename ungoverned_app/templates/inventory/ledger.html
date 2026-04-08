@@ -9,7 +9,7 @@
 
 <p>
   <a href="{% url 'component_list' %}">Back to Components</a> |
-  <a href="{% url 'inventory_receive' %}">Receive Stock</a> |
+  <a href="{% url 'inventory_receive' %}?component={{ component.id }}">Receive Stock</a> |
   <a href="{% url 'inventory_adjust' %}?component={{ component.id }}">Adjust Stock</a>
 </p>
 
