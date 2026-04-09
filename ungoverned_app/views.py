@@ -4,12 +4,12 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.urls import reverse
-from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum, ExpressionWrapper, DecimalField
+from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum, ExpressionWrapper, DecimalField, Value
 from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement
+from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement, with_legacy_low_stock_threshold, with_stock_priority, with_bom_low_stock_threshold
 from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm
 from .services.inventory import record_stock_movement
 
@@ -64,20 +64,12 @@ def orders_list(request):
         {"orders": orders, "status_filter": status_filter},
     )
 
-from django.db.models import Case, When, Value, IntegerField, F
-
 def component_list(request):
+    base_qs = Component.objects.all().prefetch_related("suppliers")
+
     components = (
-        Component.objects
-        .all()
-        .prefetch_related("suppliers")
-        .annotate(
-            stock_priority=Case(
-                When(stock_quantity=0, then=Value(0)),
-                When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
-                default=Value(2),
-                output_field=IntegerField(),
-            )
+        with_stock_priority(
+            with_bom_low_stock_threshold(base_qs)
         )
         .order_by(
             "top_level_item",
@@ -87,6 +79,7 @@ def component_list(request):
             "name",
         )
     )
+
     return render(request, "inventory/component_list.html", {"components": components})
 
 def clean_quantity(self):
@@ -375,16 +368,16 @@ def inventory_receive(request):
     else:
         initial_component_id = request.GET.get("component")
         initial = {}
-
+    
         if initial_component_id:
             selected_component = Component.objects.filter(pk=initial_component_id).first()
             if selected_component:
                 initial["component"] = selected_component.id
-
-                form = ReceiveStockForm(
-                   initial=initial,
-                   selected_component=bool(selected_component),
-                )
+    
+        form = ReceiveStockForm(
+            initial=initial,
+            selected_component=bool(selected_component),
+        )
 
     return render(
         request,
@@ -681,20 +674,17 @@ def reopen_order(request, order_id):
     messages.success(request, f"Order #{order.id} reopened and moved back to Pending.")
     return redirect("orders_list")
 
-
 @login_required
 def low_stock_dashboard(request):
-    low_stock_components = (
+    base_qs = (
         Component.objects
-        .exclude(qty_per_vehicle__isnull=True)
-        .annotate(
-            calculated_low_stock_threshold=ExpressionWrapper(
-                F("qty_per_vehicle") * 3,
-                output_field=DecimalField(max_digits=10, decimal_places=2),
-            )
-        )
-        .filter(stock_quantity__lte=F("calculated_low_stock_threshold"))
         .prefetch_related("suppliers")
+    )
+
+    low_stock_components = (
+        with_bom_low_stock_threshold(base_qs)
+        .filter(stock_quantity__lte=F("bom_low_stock_threshold"))
+        .exclude(max_bom_quantity_required=0)
         .order_by("stock_quantity", "name")
     )
 

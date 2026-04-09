@@ -1,10 +1,44 @@
 from django.db import models
+from django.db.models import ExpressionWrapper, DecimalField, Case, When, Value, IntegerField, F, Max
+from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 from django.urls import reverse
 from django.core.validators import MinLengthValidator
 from decimal import Decimal
+
+
+def with_legacy_low_stock_threshold(queryset):
+    return queryset.annotate(
+        legacy_low_stock_threshold=ExpressionWrapper(
+            F("qty_per_vehicle") * 3,
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        )
+    )
+
+def with_stock_priority(queryset):
+    return queryset.annotate(
+        stock_priority=Case(
+            When(stock_quantity=0, then=Value(0)),
+            When(stock_quantity__lte=F("bom_low_stock_threshold"), then=Value(1)),
+            default=Value(2),
+            output_field=IntegerField(),
+        )
+    )
+
+def with_bom_low_stock_threshold(queryset):
+    return queryset.annotate(
+        max_bom_quantity_required=Coalesce(
+            Max("productcomponent__quantity_required"),
+            Value(0),
+        ),
+    ).annotate(
+        bom_low_stock_threshold=ExpressionWrapper(
+            F("max_bom_quantity_required") * 3,
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        )
+    )
 
 class Customer(models.Model):
     name = models.CharField(max_length=255)
@@ -37,7 +71,6 @@ class Component(models.Model):
     top_level_item = models.CharField(max_length=150, blank=True, null=True)
     sub_assembly = models.CharField(max_length=150, blank=True, null=True)
     material = models.CharField(max_length=100, blank=True, null=True)
-    qty_per_vehicle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     unit = models.CharField(max_length=50)
     cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -52,19 +85,24 @@ class Component(models.Model):
 
     def __str__(self):
         return self.name
-
+    
     @property
     def low_stock_threshold(self):
-        if self.qty_per_vehicle is None:
+        max_required = self.productcomponent_set.aggregate(
+            max_qty=Max("quantity_required")
+        )["max_qty"]
+    
+        if max_required is None:
             return None
-        return self.qty_per_vehicle * Decimal("3")
+    
+        return Decimal(max_required) * Decimal("3")
     
     def is_low_stock(self):
         threshold = self.low_stock_threshold
         if threshold is None:
             return False
         return self.stock_quantity <= threshold
-    
+
     def stock_level_status(self):
         threshold = self.low_stock_threshold
         if self.stock_quantity == 0:
@@ -74,12 +112,6 @@ class Component(models.Model):
         else:
             return "success"
     
-    @property
-    def cost_per_vehicle(self):
-        if self.cost_per_unit is not None and self.qty_per_vehicle is not None:
-            return self.cost_per_unit * self.qty_per_vehicle
-        return None
-
 class StockMovement(models.Model):
 
     class Reason(models.TextChoices):
@@ -212,6 +244,16 @@ class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     components = models.ManyToManyField("Component", through='ProductComponent')
+
+    from decimal import Decimal
+
+    @property
+    def cost_per_vehicle(self):
+        total = Decimal("0")
+        for bom_item in self.productcomponent_set.select_related("component").all():
+            if bom_item.component.cost_per_unit is not None:
+                total += bom_item.component.cost_per_unit * bom_item.quantity_required
+        return total
 
     def __str__(self):
         return self.name

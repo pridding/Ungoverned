@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import ProductBuild, Order, Component
+from .models import ProductBuild, Order, Component, with_legacy_low_stock_threshold, with_stock_priority
 from django.db.models import Case, When, Value, IntegerField, F
 
 class ProductBuildForm(forms.ModelForm):
@@ -19,10 +19,6 @@ class ProductBuildForm(forms.ModelForm):
         self.fields["order"].required = False
         self.fields["order"].empty_label = "— No order —"
 
-        self.fields["order"].label_from_instance = (
-            lambda obj: f"{obj.customer} (Order #{obj.id})"
-        )
-
 class ReceiveStockForm(forms.Form):
     component = forms.ModelChoiceField(
         queryset=Component.objects.none(),
@@ -39,20 +35,19 @@ class ReceiveStockForm(forms.Form):
 
     def __init__(self, *args, selected_component=False, **kwargs):
         super().__init__(*args, **kwargs)
-
+    
+        base_qs = Component.objects.all()
+    
         self.fields["component"].queryset = (
-            Component.objects
-            .annotate(
-                stock_priority=Case(
-                    When(stock_quantity=0, then=Value(0)),
-                    When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
-                    default=Value(2),
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by("stock_priority", "name")
+            with_stock_priority(
+                with_legacy_low_stock_threshold(base_qs)
+            ).order_by("stock_priority", "name")
         )
-
+    
+        self.fields["component"].label_from_instance = (
+            lambda obj: f"{obj.name} (Stock: {int(obj.stock_quantity)})"
+        )
+    
         if selected_component:
             self.fields["quantity"].widget.attrs["autofocus"] = "autofocus"
 
@@ -73,20 +68,20 @@ class AdjustStockForm(forms.Form):
 
     def __init__(self, *args, selected_component=False, **kwargs):
         super().__init__(*args, **kwargs)
+    
+        base_qs = Component.objects.all()
 
         self.fields["component"].queryset = (
-            Component.objects
-            .annotate(
-                stock_priority=Case(
-                    When(stock_quantity=0, then=Value(0)),
-                    When(stock_quantity__lte=F("qty_per_vehicle") * 3, then=Value(1)),
-                    default=Value(2),
-                    output_field=IntegerField(),
-                )
+            with_stock_priority(
+                with_legacy_low_stock_threshold(base_qs)
             )
             .order_by("stock_priority", "name")
         )
 
+        self.fields["component"].label_from_instance = (
+            lambda obj: f"{obj.name} (Stock: {int(obj.stock_quantity)})"
+        )
+    
         if selected_component:
             self.fields["qty_delta"].widget.attrs["autofocus"] = "autofocus"
 

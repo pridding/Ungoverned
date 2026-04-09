@@ -17,12 +17,10 @@
                     <th>Top Level Item</th>
                     <th>Sub Assembly</th>
                     <th>Material</th>
-                    <th>Qty / Vehicle</th>
                     <th>Stock Quantity</th>
                     <th>Production Method</th>
                     <th>Suppliers</th>
                     <th>Cost / Unit</th>
-                    <th>Cost / Vehicle</th>
                 </tr>
             </thead>
             <tbody>
@@ -36,7 +34,6 @@
                     <td>{{ component.top_level_item|default:"-" }}</td>
                     <td>{{ component.sub_assembly|default:"-" }}</td>
                     <td>{{ component.material|default:"-" }}</td>
-                    <td>{{ component.qty_per_vehicle|default:"-" }}</td>
                     <td>
                         <span class="badge bg-{{ component.stock_level_status }}">
                             {{ component.stock_quantity }}
@@ -59,13 +56,6 @@
                     <td>
                         {% if component.cost_per_unit is not None %}
                             ${{ component.cost_per_unit }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if component.cost_per_vehicle is not None %}
-                            ${{ component.cost_per_vehicle }}
                         {% else %}
                             -
                         {% endif %}
