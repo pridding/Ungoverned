@@ -8,13 +8,17 @@ urlpatterns = [
 
     path('components/', views.component_list, name='component_list'),
     path("components/low-stock/", views.low_stock_dashboard, name="low_stock_dashboard"),
+    path("components/<int:id>/", views.component_detail, name="component_detail"),
     path("components/<int:id>/ledger/", views.component_ledger, name="component_ledger"),
+
     path("inventory/receive/", views.inventory_receive, name="inventory_receive"),
     path("inventory/adjust/", views.inventory_adjust, name="inventory_adjust"),
 
     path('build/', views.product_bom, name='product_bom'),
     path('build/submit/', views.build_product, name='build_product'),
     path('builds/<int:build_id>/cancel/', views.cancel_build, name='cancel_build'),
+
+    path("customers/<int:id>/", views.customer_detail, name="customer_detail"),
 
     path('orders/', views.orders_list, name='orders_list'),
     path("orders/<int:order_id>/start-build/", views.start_build, name="start_build"),

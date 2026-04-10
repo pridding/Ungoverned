@@ -185,3 +185,51 @@ h1, h2, h3 {
     color: #ffffff !important;
     box-shadow: none !important;
 }
+
+/* Custom secondary button */
+
+.btn-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-secondary:active {
+    background-color: #5a6268 !important;
+    border-color: #5a6268 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+/* Custom outline secondary */
+
+.btn-outline-secondary {
+    color: #2a95c7 !important;
+    border-color: #2a95c7 !important;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus,
+.btn-outline-secondary:active {
+    background-color: #2a95c7 !important;
+    color: #ffffff !important;
+    border-color: #2a95c7 !important;
+    box-shadow: none !important;
+}
+
+/* Dark table header to match app style */
+
+.table-dark-header thead th {
+    background-color: #0f172a;  /* same dark/nav tone */
+    color: #ffffff;
+    border-color: #1f2937;
+}
+
+/* Highlight most recent ledger row */
+
+.latest-movement td {
+    background-color: #f8fafc !important;  /* very light blue/grey */
+    border-top: 2px solid #2a95c7;
+}

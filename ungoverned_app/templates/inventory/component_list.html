@@ -27,7 +27,7 @@
                 {% for component in components %}
                 <tr>
                     <td>
-                        <a href="{% url 'component_ledger' id=component.id %}">
+                        <a href="{% url 'component_detail' component.id %}">
                             {{ component.name }}
                         </a>
                     </td>

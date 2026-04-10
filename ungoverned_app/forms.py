@@ -112,3 +112,11 @@ class OrderNotesForm(forms.ModelForm):
         widgets = {
             "notes": forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
         }
+
+class ComponentNotesForm(forms.ModelForm):
+    class Meta:
+        model = Component
+        fields = ["notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 6}),
+        }

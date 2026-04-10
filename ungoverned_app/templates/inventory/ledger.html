@@ -4,103 +4,116 @@
 <h1>Component Ledger: {{ component.name }}</h1>
 
 <p>
-  Current stock: <strong>{{ component.stock_quantity }}</strong>
+    Current stock: <strong>{{ component.stock_quantity }}</strong>
 </p>
 
-<p>
-  <a href="{% url 'component_list' %}">Back to Components</a> |
-  <a href="{% url 'inventory_receive' %}?component={{ component.id }}">Receive Stock</a> |
-  <a href="{% url 'inventory_adjust' %}?component={{ component.id }}">Adjust Stock</a>
-</p>
+<div class="mb-3 d-flex gap-2">
+    <a href="{% url 'inventory_receive' %}?component={{ component.id }}" class="btn btn-primary">
+        Receive Stock
+    </a>
+    <a href="{% url 'inventory_adjust' %}?component={{ component.id }}" class="btn btn-secondary">
+        Adjust Stock
+    </a>
+    <a href="{% url 'component_detail' component.id %}" class="btn btn-outline-secondary">
+        Component Details
+    </a>
+    <a href="{% url 'component_list' %}" class="btn btn-outline-secondary">
+        Back to Inventory
+    </a>
+</div>
 
-<form method="get" style="margin: 16px 0;">
-  <label for="reason"><strong>Filter by reason:</strong></label>
-  <select name="reason" id="reason">
-    <option value="">All</option>
-    {% for value, label in reason_choices %}
-      <option value="{{ value }}" {% if reason_filter == value %}selected{% endif %}>
-        {{ label }}
-      </option>
-    {% endfor %}
-  </select>
-  <button type="submit">Apply</button>
-  <a href="{% url 'component_ledger' id=component.id %}">Clear</a>
+<form method="get" class="mb-3 d-flex align-items-center gap-2">
+    <label for="reason" class="mb-0">Filter:</label>
+
+    <select name="reason" id="reason" class="form-select form-select-sm" style="width: auto;">
+        <option value="">All</option>
+        {% for value, label in reason_choices %}
+            <option value="{{ value }}" {% if value == selected_reason %}selected{% endif %}>
+                {{ label }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+
+    {% if selected_reason %}
+        <a href="{% url 'component_ledger' component.id %}" class="btn btn-outline-secondary btn-sm">
+            Clear
+        </a>
+    {% endif %}
 </form>
 
-<table border="1" cellpadding="6" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-  <thead>
-    <tr>
-      <th>When</th>
-      <th>Delta</th>
-      <th>Running Balance</th>
-      <th>Reason</th>
-      <th>Note</th>
-      <th>Reference</th>
-      <th>By</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for m in movements %}
-      <tr>
-        <td>{{ m.created_at|date:"Y-m-d H:i" }}</td>
+<div class="table-responsive">
+    <table class="table table-sm align-middle table-dark-header">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Delta</th>
+                <th>Running Balance</th>
+                <th>Reason</th>
+                <th>Note</th>
+                <th>Reference</th>
+                <th>By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in movements %}
+                <tr class="{% if forloop.first %}latest-movement{% endif %}">
+                    <td>{{ m.created_at|date:"Y-m-d H:i" }}</td>
 
-        <td>
-          {% if m.qty_delta > 0 %}
-            <span class="badge bg-success">+{{ m.qty_delta }}</span>
-          {% elif m.qty_delta < 0 %}
-            <span class="badge bg-danger">{{ m.qty_delta }}</span>
-          {% else %}
-            <span class="badge bg-secondary">{{ m.qty_delta }}</span>
-          {% endif %}
-        </td>
+                    <td>
+                        {% if m.qty_delta > 0 %}
+                            <span class="badge bg-success">+{{ m.qty_delta }}</span>
+                        {% elif m.qty_delta < 0 %}
+                            <span class="badge bg-danger">{{ m.qty_delta }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ m.qty_delta }}</span>
+                        {% endif %}
+                    </td>
 
-        <td><strong>{{ m.running_balance }}</strong></td>
+                    <td><strong>{{ m.running_balance }}</strong></td>
 
-        <td>
-          {% if m.reason == "RECEIVE" %}
-            <span class="badge bg-primary">{{ m.get_reason_display }}</span>
-        
-          {% elif m.reason == "ADJUSTMENT" %}
-            <span class="badge bg-secondary">{{ m.get_reason_display }}</span>
-        
-          {% elif m.reason == "BUILD_CONSUME" %}
-            <span class="badge bg-danger">{{ m.get_reason_display }}</span>
-        
-          {% elif m.reason == "BUILD_CANCEL_RETURN" %}
-            <span class="badge bg-success">{{ m.get_reason_display }}</span>
-        
-          {% elif m.reason == "ORDER_CANCEL_RETURN" %}
-            <span class="badge bg-success">{{ m.get_reason_display }}</span>
-        
-          {% else %}
-            {{ m.get_reason_display }}
-          {% endif %}
-        </td>
+                    <td>
+                        {% if m.reason == "RECEIVE" %}
+                            <span class="badge bg-primary">{{ m.get_reason_display }}</span>
+                        {% elif m.reason == "ADJUSTMENT" %}
+                            <span class="badge bg-secondary">{{ m.get_reason_display }}</span>
+                        {% elif m.reason == "BUILD_CONSUME" %}
+                            <span class="badge bg-danger">{{ m.get_reason_display }}</span>
+                        {% elif m.reason == "BUILD_CANCEL_RETURN" %}
+                            <span class="badge bg-success">{{ m.get_reason_display }}</span>
+                        {% elif m.reason == "ORDER_CANCEL_RETURN" %}
+                            <span class="badge bg-success">{{ m.get_reason_display }}</span>
+                        {% else %}
+                            {{ m.get_reason_display }}
+                        {% endif %}
+                    </td>
 
-        <td>{{ m.note|default:"" }}</td>
+                    <td>{{ m.note|default:"" }}</td>
 
-        <td>
-          {% if m.reference_url %}
-            <a href="{{ m.reference_url }}">{{ m.reference_label }}</a>
-          {% else %}
-            {{ m.reference_label }}
-          {% endif %}
-        </td>
+                    <td>
+                        {% if m.reference_url %}
+                            <a href="{{ m.reference_url }}">{{ m.reference_label }}</a>
+                        {% else %}
+                            {{ m.reference_label }}
+                        {% endif %}
+                    </td>
 
-        <td>
-          {% if m.created_by %}
-            {{ m.created_by.username }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-      </tr>
-    {% empty %}
-      <tr>
-        <td colspan="7">No movements yet.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
+                    <td>
+                        {% if m.created_by %}
+                            {{ m.created_by.username }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" class="text-muted">No movements yet.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 {% endblock %}

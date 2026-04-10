@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">{{ component.name }}</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <p><strong>Top Level Item:</strong> {{ component.top_level_item|default:"—" }}</p>
+            <p><strong>Sub Assembly:</strong> {{ component.sub_assembly|default:"—" }}</p>
+            <p><strong>Material:</strong> {{ component.material|default:"—" }}</p>
+            <p><strong>Unit:</strong> {{ component.unit|default:"—" }}</p>
+            <p><strong>Production Method:</strong> {{ component.production_method|default:"—" }}</p>
+            <p><strong>Cost per Unit:</strong> {{ component.cost_per_unit|default:"—" }}</p>
+            <p><strong>Stock Quantity:</strong> {{ component.stock_quantity }}</p>
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h2 class="h4 mb-3">Notes</h2>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.notes }}
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">Save Notes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <a href="{% url 'inventory_receive' %}?component={{ component.id }}" class="btn btn-primary">
+            Receive Stock
+        </a>
+        <a href="{% url 'inventory_adjust' %}?component={{ component.id }}" class="btn btn-secondary">
+            Adjust Stock
+        </a>
+
+        <a href="{% url 'component_ledger' component.id %}" class="btn btn-outline-secondary">
+            View Ledger
+        </a>
+        <a href="{% url 'component_list' %}" class="btn btn-outline-secondary">
+            Back to Inventory
+        </a>
+    </div>
+</div>
+{% endblock %}

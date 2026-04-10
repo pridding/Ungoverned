@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">{{ customer.name }}</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <p><strong>Email:</strong> {{ customer.email|default:"—" }}</p>
+            <p><strong>Phone:</strong> {{ customer.phone_number|default:"—" }}</p>
+            <p><strong>Country:</strong> {{ customer.country|default:"—" }}</p>
+            <p><strong>Address:</strong><br>{{ customer.address|linebreaksbr|default:"—" }}</p>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'orders_list' %}" class="btn btn-secondary">Back to Orders</a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h2 class="h4 mb-3">Orders</h2>
+
+        {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Order Date</th>
+                            <th>Status</th>
+                            <th>Shipping Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'order_detail' order.id %}">{{ order.id }}</a>
+                                </td>
+                                <td>{{ order.order_date|date:"F j, Y" }}</td>
+                                <td>{{ order.get_status_display|default:order.status }}</td>
+                                <td>{{ order.shipping_date|date:"F j, Y"|default:"—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="mb-0 text-muted">No orders found for this customer.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -9,13 +9,28 @@ from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement, with_stock_priority, with_bom_low_stock_threshold
-from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm
+from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, Customer
+from .models import StockMovement, with_stock_priority, with_bom_low_stock_threshold
+from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm
 from .services.inventory import record_stock_movement
 
 # Home page view
 def home(request):
     return render(request, 'home.html')
+
+@login_required
+def customer_detail(request, id):
+    customer = get_object_or_404(Customer, id=id)
+    orders = Order.objects.filter(customer=customer).order_by("-order_date", "-id")
+
+    return render(
+        request,
+        "customers/detail.html",
+        {
+            "customer": customer,
+            "orders": orders,
+        },
+    )
 
 @login_required
 def orders_list(request):
@@ -81,6 +96,31 @@ def component_list(request):
     )
 
     return render(request, "inventory/component_list.html", {"components": components})
+
+@login_required
+def component_detail(request, id):
+    component = get_object_or_404(
+        Component.objects.prefetch_related("suppliers"),
+        id=id,
+    )
+
+    if request.method == "POST":
+        form = ComponentNotesForm(request.POST, instance=component)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Component notes updated.")
+            return redirect("component_detail", id=component.id)
+    else:
+        form = ComponentNotesForm(instance=component)
+
+    return render(
+        request,
+        "inventory/component_detail.html",
+        {
+            "component": component,
+            "form": form,
+        },
+    )
 
 def clean_quantity(self):
     qty = self.cleaned_data['quantity']
