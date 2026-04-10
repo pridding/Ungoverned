@@ -20,10 +20,34 @@
   color: white;
 }
 
-table thead.table-header-blue th {
+.table-header-blue {
+    background: #121820 !important;
+    color: #d1d5db !important;
+}
+
+.table-header-blue th {
+    background: #121820 !important;
+    color: #d1d5db !important;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+/* Darker, more tactical row striping */
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: #141a22;
+}
+
+.table-striped tbody tr:nth-of-type(even) {
+    background-color: #10151b;
+}
+
+/* table thead.table-header-blue th {
   background-color: #007bff !important;
   color: white !important;
-}
+} */
 
 .navbar .nav-link {
     opacity: 0.85;
@@ -38,4 +62,126 @@ table thead.table-header-blue th {
     font-weight: bold;
     opacity: 1;
     border-bottom: 2px solid white;
+}
+
+/* Tactical typography tweaks */
+
+.tracking-tight {
+    letter-spacing: 1px;
+}
+
+body {
+    background-color: #0f1113; /* subtle dark grey instead of pure black */
+}
+
+h1, h2, h3 {
+    letter-spacing: 1px;
+}
+
+.btn-outline-light {
+    border-width: 1px;
+    letter-spacing: 0.5px;
+}
+
+/* Tactical button feel */
+
+.btn {
+    border-radius: 2px; /* sharper edges */
+}
+
+.btn-outline-light {
+    border-color: rgba(255,255,255,0.4);
+}
+
+.btn-outline-light:hover {
+    background-color: rgba(255,255,255,0.1);
+    border-color: #fff;
+}
+
+/* Slight “panel button” feel */
+.btn-sm {
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+.bg-deep-blue {
+    background: linear-gradient(90deg, #0b0f14 0%, #121820 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navbar {
+    box-shadow: none;
+}
+
+.navbar-brand,
+.navbar .nav-link {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+}
+
+/* Active nav = system state */
+
+.navbar .nav-link.active {
+    color: #ffffff !important;
+    position: relative;
+}
+
+.navbar .nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    width: 100%;
+    height: 2px;
+    background-color: #d1d5db; /* subtle light grey */
+}
+
+/* Replace bright bootstrap blue tables */
+
+.table thead tr {
+    background: #121820 !important;
+    color: #d1d5db !important;
+}
+
+.table thead th {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.badge.bg-danger,
+.badge.text-bg-danger {
+    background-color: #8b1e24 !important;
+    color: #f3f4f6 !important;
+    border: 1px solid #b02a37;
+}
+
+.badge.bg-warning,
+.badge.text-bg-warning {
+    background-color: #d68d20 !important;
+    color: #f3f4f6 !important;
+    border: 1px solid #b08a2a;
+}
+
+.logo-muted {
+    opacity: 0.85;
+}
+
+/* Custom primary button colour */
+
+.btn-primary {
+    background-color: #2a95c7 !important;
+    border-color: #2a95c7 !important;
+    color: #ffffff !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #247ea9 !important;
+    border-color: #247ea9 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
 }

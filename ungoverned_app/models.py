@@ -9,14 +9,6 @@ from django.core.validators import MinLengthValidator
 from decimal import Decimal
 
 
-def with_legacy_low_stock_threshold(queryset):
-    return queryset.annotate(
-        legacy_low_stock_threshold=ExpressionWrapper(
-            F("qty_per_vehicle") * 3,
-            output_field=DecimalField(max_digits=10, decimal_places=2),
-        )
-    )
-
 def with_stock_priority(queryset):
     return queryset.annotate(
         stock_priority=Case(

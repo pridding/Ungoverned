@@ -9,7 +9,7 @@ from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement, with_legacy_low_stock_threshold, with_stock_priority, with_bom_low_stock_threshold
+from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, StockMovement, with_stock_priority, with_bom_low_stock_threshold
 from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm
 from .services.inventory import record_stock_movement
 

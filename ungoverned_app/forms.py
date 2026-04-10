@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import ProductBuild, Order, Component, with_legacy_low_stock_threshold, with_stock_priority
+from .models import ProductBuild, Order, Component, with_bom_low_stock_threshold, with_stock_priority
 from django.db.models import Case, When, Value, IntegerField, F
 
 class ProductBuildForm(forms.ModelForm):
@@ -40,7 +40,7 @@ class ReceiveStockForm(forms.Form):
     
         self.fields["component"].queryset = (
             with_stock_priority(
-                with_legacy_low_stock_threshold(base_qs)
+                with_bom_low_stock_threshold(base_qs)
             ).order_by("stock_priority", "name")
         )
     
@@ -73,7 +73,7 @@ class AdjustStockForm(forms.Form):
 
         self.fields["component"].queryset = (
             with_stock_priority(
-                with_legacy_low_stock_threshold(base_qs)
+                with_bom_low_stock_threshold(base_qs)
             )
             .order_by("stock_priority", "name")
         )

@@ -46,6 +46,54 @@
         {% endfor %}
     </div>
 
+    <form method="post" action="{% url 'build_product' %}" class="d-flex align-items-center mb-3 flex-wrap gap-2">
+        {% csrf_token %}
+
+        {% render_field form.quantity class+="form-control w-auto" max=build_capacity.buildable_units %}
+        {{ form.order|add_class:"form-select w-auto" }}
+
+        <button 
+            type="submit" 
+            class="btn btn-success"
+            {% if build_capacity.buildable_units == 0 %}disabled{% endif %}
+        >
+            {% if build_capacity.buildable_units == 0 %}
+                Cannot Build
+            {% else %}
+                Build This Product
+            {% endif %}
+        </button>
+
+        {% if selected_order %}
+            <span class="badge bg-secondary">
+                Order #{{ selected_order.id }} — {{ selected_order.customer.name }}
+            </span>
+        {% endif %}
+    </form>
+
+    <h5 class="mt-4">Build History</h5>
+    <ul class="list-group">
+        {% for build in recent_builds %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    {{ build.quantity }} x {{ build.product.name }}
+                    {% if build.order %}
+                        — Order #{{ build.order.id }} ({{ build.order.customer }})
+                    {% else %}
+                        — No order
+                    {% endif %}
+                    ({{ build.built_at|date:"Y-m-d H:i" }})
+                </div>
+                <form method="post" action="{% url 'cancel_build' build.id %}" class="ms-3">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger">Cancel Build</button>
+                </form>
+            </li>
+        {% empty %}
+            <li class="list-group-item">No builds yet.</li>
+        {% endfor %}
+    </ul>
+
     <h3 class="mt-4">Bill of Materials</h3>
     <table class="table table-striped">
         <thead class="table-header-blue">
@@ -114,52 +162,5 @@
         </tbody>
     </table>
 
-    <form method="post" action="{% url 'build_product' %}" class="d-flex align-items-center mb-3 flex-wrap gap-2">
-        {% csrf_token %}
-
-        {% render_field form.quantity class+="form-control w-auto" max=build_capacity.buildable_units %}
-        {{ form.order|add_class:"form-select w-auto" }}
-
-        <button 
-            type="submit" 
-            class="btn btn-success"
-            {% if build_capacity.buildable_units == 0 %}disabled{% endif %}
-        >
-            {% if build_capacity.buildable_units == 0 %}
-                Cannot Build
-            {% else %}
-                Build This Product
-            {% endif %}
-        </button>
-
-        {% if selected_order %}
-            <span class="badge bg-secondary">
-                Order #{{ selected_order.id }} — {{ selected_order.customer.name }}
-            </span>
-        {% endif %}
-    </form>
-
-    <h5 class="mt-4">Build History</h5>
-    <ul class="list-group">
-        {% for build in recent_builds %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    {{ build.quantity }} x {{ build.product.name }}
-                    {% if build.order %}
-                        — Order #{{ build.order.id }} ({{ build.order.customer }})
-                    {% else %}
-                        — No order
-                    {% endif %}
-                    ({{ build.built_at|date:"Y-m-d H:i" }})
-                </div>
-                <form method="post" action="{% url 'cancel_build' build.id %}" class="ms-3">
-                    {% csrf_token %}
-                    <button class="btn btn-sm btn-outline-danger">Cancel Build</button>
-                </form>
-            </li>
-        {% empty %}
-            <li class="list-group-item">No builds yet.</li>
-        {% endfor %}
-    </ul>
 </div>
 {% endblock %}

@@ -4,25 +4,33 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<div class="text-center">
-    <h1>Welcome to Ungoverned Electric Skateboards!</h1>
-    <p class="lead">Designing, Building, and Shredding the Streets.</p>
+<div class="bg-dark text-light py-5">
+    <div class="container text-center">
 
-    <div class="d-flex justify-content-center gap-3 mb-3">
-        <a href="/orders/" class="btn btn-primary">View Orders</a>
-        <a href="/components/" class="btn btn-primary">View Inventory</a>
-        <a href="/builds/" class="btn btn-primary">View Builds</a>
+        <h1 class="fw-bold text-uppercase tracking-tight">
+            UNGOVERNED DUAL-TRACK OFF-ROAD ELECTRIC PLATFORM
+        </h1>
+
+        <p class="text-secondary small mb-4">
+            ENGINEERED WITHOUT COMPROMISE
+        </p>
+
+        <div class="mb-4">
+            <a href="{% url 'orders_list' %}" class="btn btn-outline-light btn-sm px-4 me-2">Orders</a>
+            <a href="{% url 'component_list' %}" class="btn btn-outline-light btn-sm px-4 me-2">Inventory</a>
+            <a href="{% url 'product_bom' %}" class="btn btn-outline-light btn-sm px-4">Build</a>
+        </div>
     </div>
 
-
-    <div>
-        <img src="{% static 'images/Skate-or-Die.jpg' %}" alt="Electric Skateboard"
+    <div class="d-flex justify-content-center">
+        <img src="{% static 'images/vendetta_water_720x.jpeg' %}" alt="Electric Skateboard"
              class="img-fluid rounded mb-4" style="max-height: 600px;">
     </div>
-    <div class="mt-5">
-        <img src="{% static 'images/UNGOVERNED_logo_n_text_BLK_background_730x.jpg' %}" alt="Ungoverned"
-             class="img-fluid rounded mb-4" style="max-height: 100px;">
-    </div>
 
+    <div class="d-flex justify-content-center mt-5">
+        <img src="{% static 'images/UNGOVERNED_logo_n_text_BLK_background_730x.jpg' %}"
+             class="img-fluid rounded mb-4 logo-muted"
+             style="max-height: 100px;">
+    </div>
 </div>
 {% endblock %}

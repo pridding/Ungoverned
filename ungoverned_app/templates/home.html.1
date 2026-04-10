@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="text-center">
+    <h1>Ungoverned dual-track off-road electric platform!</h1>
+    <p class="lead">ENGINEERED WITHOUT COMPROMISE.</p>
+
+    <div class="d-flex justify-content-center gap-3 mb-3">
+        <a href="/orders/" class="btn btn-primary">View Orders</a>
+        <a href="/components/" class="btn btn-primary">View Inventory</a>
+        <a href="/build/" class="btn btn-primary">View Builds</a>
+    </div>
+
+
+    <div>
+        <img src="{% static 'images/vendetta_water_720x.jpeg' %}" alt="Electric Skateboard"
+             class="img-fluid rounded mb-4" style="max-height: 600px;">
+    </div>
+    <div class="mt-5">
+        <img src="{% static 'images/UNGOVERNED_logo_n_text_BLK_background_730x.jpg' %}" alt="Ungoverned"
+             class="img-fluid rounded mb-4" style="max-height: 100px;">
+    </div>
+
+</div>
+{% endblock %}
