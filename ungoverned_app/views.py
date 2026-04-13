@@ -4,14 +4,14 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.urls import reverse
-from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum, ExpressionWrapper, DecimalField, Value
+from django.db.models import Case, When, IntegerField, DateField, DateTimeField, F, Min, Sum, ExpressionWrapper, DecimalField, Value, Count, Q, Max
 from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, Customer
 from .models import StockMovement, with_stock_priority, with_bom_low_stock_threshold
-from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm
+from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm, CustomerForm
 from .services.inventory import record_stock_movement
 
 # Home page view
@@ -29,6 +29,33 @@ def customer_detail(request, id):
         {
             "customer": customer,
             "orders": orders,
+        },
+    )
+
+@login_required
+def customers_list(request):
+    q = request.GET.get("q", "").strip()
+
+    customers = Customer.objects.annotate(
+        order_count=Count("order"),
+        last_order_date=Max("order__order_date"),
+    )
+
+    if q:
+        customers = customers.filter(
+            Q(name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(phone_number__icontains=q)
+        )
+
+    customers = customers.order_by("name", "id")
+
+    return render(
+        request,
+        "customers/list.html",
+        {
+            "customers": customers,
+            "q": q,
         },
     )
 
@@ -734,5 +761,49 @@ def low_stock_dashboard(request):
         {
             "components": low_stock_components,
             "low_stock_count": low_stock_components.count(),
+        },
+    )
+
+@login_required
+def customer_create(request):
+    if request.method == "POST":
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            customer = form.save()
+            messages.success(request, f"Customer '{customer.name}' created.")
+            return redirect("customer_detail", id=customer.id)
+    else:
+        form = CustomerForm()
+
+    return render(
+        request,
+        "customers/form.html",
+        {
+            "form": form,
+            "page_title": "New Customer",
+            "submit_label": "Create Customer",
+        },
+    )
+
+@login_required
+def customer_edit(request, id):
+    customer = get_object_or_404(Customer, id=id)
+
+    if request.method == "POST":
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            customer = form.save()
+            messages.success(request, f"Customer '{customer.name}' updated.")
+            return redirect("customer_detail", id=customer.id)
+    else:
+        form = CustomerForm(instance=customer)
+
+    return render(
+        request,
+        "customers/form.html",
+        {
+            "form": form,
+            "page_title": f"Edit Customer: {customer.name}",
+            "submit_label": "Save Changes",
         },
     )

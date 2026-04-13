@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import ProductBuild, Order, Component, with_bom_low_stock_threshold, with_stock_priority
+from .models import ProductBuild, Order, Component, Customer, with_bom_low_stock_threshold, with_stock_priority
 from django.db.models import Case, When, Value, IntegerField, F
 
 class ProductBuildForm(forms.ModelForm):
@@ -119,4 +119,24 @@ class ComponentNotesForm(forms.ModelForm):
         fields = ["notes"]
         widgets = {
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 6}),
+        }
+
+class CustomerForm(forms.ModelForm):
+    class Meta:
+        model = Customer
+        fields = [
+            "name",
+            "email",
+            "phone_number",
+            "country",
+            "address",
+            "notes",
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "phone_number": forms.TextInput(attrs={"class": "form-control"}),
+            "country": forms.TextInput(attrs={"class": "form-control"}),
+            "address": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
         }

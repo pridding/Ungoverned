@@ -18,7 +18,10 @@ urlpatterns = [
     path('build/submit/', views.build_product, name='build_product'),
     path('builds/<int:build_id>/cancel/', views.cancel_build, name='cancel_build'),
 
+    path("customers/<int:id>/edit/", views.customer_edit, name="customer_edit"),
     path("customers/<int:id>/", views.customer_detail, name="customer_detail"),
+    path("customers/", views.customers_list, name="customers_list"),
+    path("customers/new/", views.customer_create, name="customer_create"),
 
     path('orders/', views.orders_list, name='orders_list'),
     path("orders/<int:order_id>/start-build/", views.start_build, name="start_build"),

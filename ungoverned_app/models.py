@@ -38,6 +38,7 @@ class Customer(models.Model):
     address = models.TextField(blank=True)
     phone_number = models.CharField(max_length=50, blank=True)
     country = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
