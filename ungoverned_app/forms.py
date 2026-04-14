@@ -2,7 +2,7 @@ from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .models import ProductBuild, Order, Component, Customer, with_bom_low_stock_threshold, with_stock_priority
-from django.db.models import Case, When, Value, IntegerField, F
+from django.db.models import Case, When, Value, IntegerField, F, Max
 
 class ProductBuildForm(forms.ModelForm):
     class Meta:
@@ -84,6 +84,34 @@ class AdjustStockForm(forms.Form):
     
         if selected_component:
             self.fields["qty_delta"].widget.attrs["autofocus"] = "autofocus"
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = [
+            "customer",
+            "order_date",
+        ]
+        widgets = {
+            "customer": forms.Select(attrs={"class": "form-select"}),
+            "order_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        qs = Customer.objects.annotate(
+            last_order_date=Max("order__order_date")
+        ).order_by("-created_at", "name")
+
+        self.fields["customer"].queryset = qs
+
+        self.fields["customer"].label_from_instance = lambda obj: (
+            f"{obj.name} (No Orders - Lead)"
+            if not obj.last_order_date
+            else f"{obj.name} (Last Order: {obj.last_order_date.strftime('%Y-%m-%d')})"
+        )
+
 
 class ShipOrderForm(forms.Form):
     shipping_date = forms.DateField(

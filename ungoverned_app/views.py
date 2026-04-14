@@ -11,8 +11,10 @@ from django.utils import timezone
 
 from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, Customer
 from .models import StockMovement, with_stock_priority, with_bom_low_stock_threshold
-from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm, CustomerForm
+from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm, CustomerForm, OrderForm
 from .services.inventory import record_stock_movement
+
+from datetime import date
 
 # Home page view
 def home(request):
@@ -48,7 +50,7 @@ def customers_list(request):
             | Q(phone_number__icontains=q)
         )
 
-    customers = customers.order_by("name", "id")
+    customers = customers.order_by("-last_order_date", "name")
 
     return render(
         request,
@@ -105,6 +107,21 @@ def orders_list(request):
         "orders/orders_list.html",
         {"orders": orders, "status_filter": status_filter},
     )
+
+
+@login_required
+def order_create(request):
+    if request.method == "POST":
+        form = OrderForm(request.POST)
+        if form.is_valid():
+            order = form.save()
+            messages.success(request, f"Order #{order.id} created successfully.")
+            return redirect("order_detail", order_id=order.id)
+    else:
+        form = OrderForm(initial={"order_date": date.today()})
+
+    return render(request, "orders/order_form.html", {"form": form})
+
 
 def component_list(request):
     base_qs = Component.objects.all().prefetch_related("suppliers")
@@ -683,7 +700,6 @@ def cancel_order(request, order_id):
         },
     )
 
-@login_required
 @login_required
 def order_detail(request, order_id):
     order = get_object_or_404(Order, id=order_id)

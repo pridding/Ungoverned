@@ -3,7 +3,12 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">Orders</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Orders</h1>
+        <a href="{% url 'order_create' %}" class="btn btn-primary">
+            + New Order
+        </a>
+    </div>
 
     <table class="table table-bordered table-striped">
         <thead class="table-header-blue">
