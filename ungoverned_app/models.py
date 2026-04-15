@@ -281,6 +281,14 @@ class Order(models.Model):
         ("paid", "Paid"),
     ]
 
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="unpaid",
+    )
+
+    payment_date = models.DateField(blank=True, null=True)
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     products = models.ManyToManyField(Product, through="OrderItem")
 

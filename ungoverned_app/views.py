@@ -687,7 +687,16 @@ def order_detail(request, order_id):
             notes_form = OrderNotesForm(instance=order)
 
             if payment_form.is_valid():
-                payment_form.save()
+                updated_order = payment_form.save(commit=False)
+
+                if updated_order.payment_status == "paid":
+                    if not updated_order.payment_date:
+                        updated_order.payment_date = timezone.now().date()
+                else:
+                    updated_order.payment_date = None
+
+                updated_order.save()
+
                 messages.success(request, f"Updated payment status for Order #{order.id}.")
                 return redirect("order_detail", order_id=order.id)
 

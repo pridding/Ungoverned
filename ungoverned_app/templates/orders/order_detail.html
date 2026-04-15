@@ -50,6 +50,15 @@
             </div>
           </form>
 
+          <p class="mb-1">
+            <strong>Payment Date:</strong>
+            {% if order.payment_date %}
+              {{ order.payment_date }}
+            {% else %}
+              —
+            {% endif %}
+          </p>
+
           <p class="mb-0"><strong>Build Started:</strong>
             {% with build=order.productbuild_set.first %}
               {% if build %}
