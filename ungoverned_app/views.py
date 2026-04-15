@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from .models import Product, Component, ProductComponent, Order, OrderItem, ProductBuild, Customer
 from .models import StockMovement, with_stock_priority, with_bom_low_stock_threshold
-from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm, CustomerForm, OrderForm
+from .forms import ProductBuildForm, ReceiveStockForm, AdjustStockForm, ShipOrderForm, CancelOrderForm, OrderNotesForm, ComponentNotesForm, CustomerForm, OrderForm, OrderPaymentStatusForm
 from .services.inventory import record_stock_movement
 
 from datetime import date
@@ -123,6 +123,7 @@ def order_create(request):
     return render(request, "orders/order_form.html", {"form": form})
 
 
+@login_required
 def component_list(request):
     base_qs = Component.objects.all().prefetch_related("suppliers")
 
@@ -172,6 +173,7 @@ def clean_quantity(self):
         raise forms.ValidationError("Quantity must be at least 1.")
     return qty
 
+@login_required
 def product_bom(request):
     product = get_object_or_404(Product, name="Vendetta")
     capacity_data = get_build_capacity_data(product)
@@ -293,6 +295,7 @@ def build_product(request):
     messages.success(request, f"{quantity} unit(s) of {product.name} built successfully!")
     return bom_redirect()
 
+@login_required
 @require_POST
 def cancel_build(request, build_id):
     build = get_object_or_404(ProductBuild, id=build_id)
@@ -312,7 +315,7 @@ def cancel_build(request, build_id):
             )
 
         # If the build was linked to an order, revert its status to 'pending'
-        print(f"Build ID {build.id} linked to Order: {build.order}, Status: {getattr(build.order, 'status', 'N/A')}")
+        #print(f"Build ID {build.id} linked to Order: {build.order}, Status: {getattr(build.order, 'status', 'N/A')}")
 
         if build.order and build.order.status == 'building':
             build.order.status = 'pending'
@@ -410,19 +413,6 @@ def get_max_buildable_units(product):
     if not product_components:
         return 0
     return min(pc.component.stock_quantity // pc.quantity_required for pc in product_components)
-
-def order_list(request):
-    status_filter = request.GET.get('status')
-    orders = Order.objects.select_related('customer')
-
-    if status_filter:
-        orders = orders.filter(status=status_filter)
-
-    orders = orders.order_by('-order_date')
-    return render(request, 'orders/order_list.html', {
-        'orders': orders,
-        'status_filter': status_filter,
-    })
 
 @login_required
 def inventory_receive(request):
@@ -562,6 +552,7 @@ def component_ledger(request, id):
     )
 
 @login_required
+@require_POST
 def start_build(request, order_id):
     order = get_object_or_404(Order, id=order_id)
 
@@ -570,33 +561,6 @@ def start_build(request, order_id):
         return redirect("orders_list")
 
     return redirect(f"{reverse('product_bom')}?order={order.id}")
-
-@login_required
-def mark_shipped(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
-
-    if request.method == "POST":
-        form = ShipOrderForm(request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                order = Order.objects.select_for_update().get(id=order_id)
-
-                if not order.can_mark_shipped():
-                    messages.error(request, "Order must be Building to mark shipped.")
-                    return redirect("orders_list")
-
-                order.shipping_date = form.cleaned_data["shipping_date"]
-                order.tracking_number = form.cleaned_data["tracking_number"]
-                order.status = Order.Status.SHIPPED
-                order.save()
-
-            messages.success(request, f"Order #{order.id} marked as shipped.")
-            return redirect("orders_list")
-    else:
-        form = ShipOrderForm()
-
-    return render(request, "orders/mark_shipped.html", {"order": order, "form": form})
-
 
 @login_required
 @require_POST
@@ -707,20 +671,41 @@ def order_detail(request, order_id):
     items = OrderItem.objects.filter(order=order).select_related("product")
 
     if request.method == "POST":
-        form = OrderNotesForm(request.POST, instance=order)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"Saved notes for Order #{order.id}.")
-            return redirect("order_detail", order_id=order.id)
+        form_type = request.POST.get("form_type")
+
+        if form_type == "notes":
+            notes_form = OrderNotesForm(request.POST, instance=order)
+            payment_form = OrderPaymentStatusForm(instance=order)
+
+            if notes_form.is_valid():
+                notes_form.save()
+                messages.success(request, f"Saved notes for Order #{order.id}.")
+                return redirect("order_detail", order_id=order.id)
+
+        elif form_type == "payment_status":
+            payment_form = OrderPaymentStatusForm(request.POST, instance=order)
+            notes_form = OrderNotesForm(instance=order)
+
+            if payment_form.is_valid():
+                payment_form.save()
+                messages.success(request, f"Updated payment status for Order #{order.id}.")
+                return redirect("order_detail", order_id=order.id)
+
+        else:
+            notes_form = OrderNotesForm(instance=order)
+            payment_form = OrderPaymentStatusForm(instance=order)
+
     else:
-        form = OrderNotesForm(instance=order)
+        notes_form = OrderNotesForm(instance=order)
+        payment_form = OrderPaymentStatusForm(instance=order)
 
     return render(
         request,
         "orders/order_detail.html",
         {
             "order": order,
-            "form": form,
+            "notes_form": notes_form,
+            "payment_form": payment_form,
             "items": items,
             "build": build,
         },

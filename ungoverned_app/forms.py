@@ -141,6 +141,14 @@ class OrderNotesForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
         }
 
+class OrderPaymentStatusForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ["payment_status"]
+        widgets = {
+            "payment_status": forms.Select(attrs={"class": "form-select"}),
+        }
+
 class ComponentNotesForm(forms.ModelForm):
     class Meta:
         model = Component

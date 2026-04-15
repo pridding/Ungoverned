@@ -18,6 +18,7 @@
                 <th>Country</th>
                 <th>Order Date</th>
                 <th>Status</th>
+                <th>Payment</th>
                 <th style="width:90px;">Info</th>
                 <th>Shipping Date</th>
                 <th style="width:240px;">Actions</th>
@@ -27,7 +28,7 @@
         <tbody>
             {% for order in orders %}
                 <tr>
-                    <td> <a href="{% url 'order_detail' order.id %}">{{ order.id }}</a> </td>
+                    <td><a href="{% url 'order_detail' order.id %}">{{ order.id }}</a></td>
                     <td>
                         <a href="{% url 'customer_detail' order.customer.id %}">
                             {{ order.customer.name }}
@@ -44,6 +45,14 @@
                                       {% elif order.status == 'cancelled' %}text-dark
                                       {% else %}text-secondary{% endif %}">
                             {{ order.status|capfirst }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="{% if order.payment_status == 'paid' %}text-success
+                                      {% elif order.payment_status == 'unpaid' %}text-danger
+                                      {% else %}text-secondary{% endif %}">
+                            {{ order.get_payment_status_display }}
                         </span>
                     </td>
 
@@ -102,7 +111,7 @@
 
             {% empty %}
                 <tr>
-                    <td colspan="8">No orders found.</td>
+                    <td colspan="9">No orders found.</td>
                 </tr>
             {% endfor %}
         </tbody>

@@ -276,6 +276,11 @@ class Order(models.Model):
         ("cancelled", "Cancelled"),
     ]
 
+    PAYMENT_STATUS_CHOICES = [
+        ("unpaid", "Unpaid"),
+        ("paid", "Paid"),
+    ]
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     products = models.ManyToManyField(Product, through="OrderItem")
 
@@ -284,17 +289,21 @@ class Order(models.Model):
     shipping_tracking_number = models.CharField(max_length=100, blank=True)
     warranty_months = models.IntegerField(default=12)
 
-    # ✅ add default so new orders don't need status manually
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default="pending",
     )
 
-    # ✅ optional but very useful for audit/history
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="unpaid",
+    )
+
     cancelled_at = models.DateTimeField(blank=True, null=True)
     cancellation_reason = models.TextField(blank=True, default="")
-    notes = models.TextField(blank=True, default="")  # general notes for anything
+    notes = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f"Order #{self.id} for {self.customer}"
@@ -304,16 +313,15 @@ class Order(models.Model):
             return self.shipping_date + timezone.timedelta(days=self.warranty_months * 30)
         return None
 
-    # ✅ convenience helpers for UI/buttons
     def can_start_build(self):
         return self.status == "pending"
-    
+
     def can_mark_complete(self):
         return self.status == "building"
-    
+
     def can_ship(self):
         return self.status == "completed"
-    
+
     def can_cancel(self):
         return self.status in {"pending", "building"}
 
